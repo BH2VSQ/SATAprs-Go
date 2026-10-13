@@ -1,0 +1,6 @@
+/build/
+/frontend/node_modules/
+/frontend/wailsjs/
+*.exe
+*.syso
+*.test

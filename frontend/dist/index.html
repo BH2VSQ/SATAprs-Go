@@ -1,0 +1,530 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#101724" />
+  <title>SatAPRS-Go</title>
+  <style>
+    :root{color-scheme:dark;--bg:#101724;--panel:#182232;--panel-alt:#1d2a3c;--line:#34445a;--text:#edf3fa;--muted:#94a7bd;--cyan:#5bcffa;--pink:#f5a9b8;--good:#8ce3bb;--warn:#f8d88a;--bad:#ff9aab;--console:#050c38;--radius:10px;font-family:"Segoe UI","Microsoft YaHei",sans-serif}
+    *{box-sizing:border-box}[hidden]{display:none!important}html,body{margin:0;min-height:100%;background:var(--bg);color:var(--text)}body{font-size:19px;line-height:1.45}.app{min-height:100vh;display:flex;flex-direction:column}.titlebar{height:50px;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:0 16px;background:#121c2a;border-bottom:1px solid #27364a}.brand{display:flex;align-items:center;gap:10px;min-width:0}.brand-icon{width:29px;height:29px;border-radius:8px;display:grid;place-items:center;color:#0b1924;background:linear-gradient(135deg,var(--cyan),var(--pink));flex:none}.brand-icon svg{width:19px;height:19px}.brand-title{font-size:22px;font-weight:800;letter-spacing:-.025em}.brand-sub{font-size:16px;color:var(--muted);margin-top:1px}.top-status{display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:flex-end}.status-pill{display:flex;align-items:center;gap:7px;border:1px solid #34445a;border-radius:5px;background:#172333;padding:5px 9px;color:#c5d3e3;font-size:17px;white-space:nowrap}.led{width:7px;height:7px;border-radius:50%;background:#728198;flex:none}.led.on{background:var(--good);box-shadow:0 0 0 3px #8ce3bb1c}.menubar{height:35px;display:flex;align-items:stretch;gap:2px;padding:0 10px;background:#151f2d;border-bottom:1px solid #2a394d;z-index:10}.menu-wrap{position:relative;display:flex;align-items:stretch}.menu-trigger{border:0;background:transparent;color:#dce6f2;padding:0 12px;font:inherit;cursor:pointer;border-radius:4px 4px 0 0}.menu-trigger:hover,.menu-wrap.open .menu-trigger,.menu-trigger:focus-visible{background:#26364b;outline:none;color:white}.dropdown{display:none;position:absolute;top:34px;left:0;min-width:220px;padding:5px;background:#1b2839;border:1px solid #43536a;border-radius:0 0 8px 8px;box-shadow:0 14px 28px #0006;z-index:50}.menu-wrap.open .dropdown{display:grid;gap:2px}.dropdown button{display:flex;align-items:center;gap:10px;width:100%;border:0;border-radius:5px;background:transparent;color:#d9e4f0;text-align:left;padding:8px 10px;font:inherit;cursor:pointer}.dropdown button:hover{background:#2a3b51;color:white}.dropdown .shortcut{margin-left:auto;color:#8297af;font-size:16px}.menu-sep{height:1px;background:#36465b;margin:3px 4px}.toolbar{min-height:47px;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:7px 14px;background:#182334;border-bottom:1px solid #2c3b50}.toolbar-group{display:flex;align-items:center;gap:6px;flex-wrap:wrap}.toolbar-btn{height:32px;display:inline-flex;align-items:center;justify-content:center;gap:7px;border:1px solid #3a4c63;border-radius:6px;padding:0 11px;background:#243247;color:#e8f0f8;font:inherit;font-size:18px;font-weight:700;white-space:nowrap;cursor:pointer}.toolbar-btn:hover{border-color:#5bcfaaa0;background:#2b4059}.toolbar-btn.primary{background:var(--cyan);border-color:var(--cyan);color:#08202b}.toolbar-btn.pink{background:var(--pink);border-color:var(--pink);color:#291721}.toolbar-btn.danger{background:#382433;border-color:#724454;color:#ffc0cb}.toolbar-btn:disabled{opacity:.42;cursor:not-allowed}.toolbar-status{display:flex;align-items:center;gap:12px;color:#9db0c5;font-size:17px}.toolbar-status strong{color:#dfeaf5;font-weight:700}.utc{font-variant-numeric:tabular-nums;color:var(--cyan);font-weight:800;font-size:20px;min-width:60px;text-align:right}
+    .desktop-layout{flex:1;display:grid;grid-template-columns:minmax(0,1.72fr) minmax(320px,.86fr);grid-template-rows:auto minmax(240px,1fr);gap:10px;padding:10px 12px 8px;min-height:0}.left-column,.right-column{display:grid;gap:10px;align-content:start;min-width:0}.panel{border:1px solid #33435a;border-radius:var(--radius);background:linear-gradient(155deg,#1a2637,#151f2d);min-width:0;overflow:hidden;box-shadow:0 3px 12px #00000012}.panel-head{min-height:37px;display:flex;align-items:center;justify-content:space-between;gap:10px;padding:7px 12px;border-bottom:1px solid #304056;background:#1b2839}.panel-title{display:flex;align-items:center;gap:8px;font-size:18px;font-weight:800;min-width:0}.panel-sub{color:#91a5bc;font-size:16px;white-space:nowrap}.panel-body{padding:11px 12px}.station-row{display:grid;grid-template-columns:minmax(180px,.85fr) minmax(280px,1.35fr);gap:12px;align-items:center}.sat-select-wrap{display:grid;gap:6px}.field-label{display:block;margin-bottom:5px;font-size:16px;font-weight:750;color:#9fb2c7;letter-spacing:.025em}.input,.select,.textarea{width:100%;min-width:0;border:1px solid #3a4a61;border-radius:6px;background:#0f1826;color:var(--text);padding:8px 9px;font:inherit;outline:none}.input:focus,.select:focus,.textarea:focus{border-color:var(--cyan);box-shadow:0 0 0 2px #5bcffa1b}.select{cursor:pointer}.textarea{resize:vertical;min-height:72px}.frequency-group{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.frequency{padding:8px 10px;border:1px solid #35465d;border-radius:6px;background:#101a28}.frequency small{display:block;color:#91a5bc;font-size:16px}.frequency strong{display:block;color:#a8e8fc;font-size:23px;letter-spacing:-.02em;font-variant-numeric:tabular-nums}.station-meta{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:8px}.station-meta strong{font-size:18px}.station-meta .hint{color:#a2b3c7;font-size:16px}.station-note{margin-top:5px;color:#8197af;font-size:16px}
+    .compose-panel .panel-body{display:grid;gap:10px}.compose-block{min-width:0}.compose-label{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:7px}.compose-label strong{font-size:18px}.compose-label span{color:#91a5bc;font-size:16px}.preset-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}.preset-item{display:grid;grid-template-columns:24px minmax(0,1fr) auto;align-items:center;gap:6px;padding:5px 6px;border:1px solid #35465c;border-radius:6px;background:#111b29;min-width:0}.preset-input{padding:6px 7px;font-size:17px;min-height:30px}.preset-n{display:inline-flex;align-items:center;justify-content:center;min-width:22px;height:18px;padding:0 4px;background:#f5a9b81c;color:var(--pink);font-size:15px;font-weight:900;border-radius:4px}.recipient-row{display:grid;grid-template-columns:minmax(160px,.55fr) minmax(0,1fr);gap:8px;align-items:end}.recipient-help{font-size:16px;color:#8297af;padding:0 0 8px}.heard-calls-list{display:grid;gap:4px;max-height:145px;overflow:auto}.heard-call-row{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:10px;width:100%;padding:6px 8px;border:1px solid #304158;border-radius:5px;background:#101a28;color:#dce8f6;cursor:default;text-align:left;font:inherit}.heard-call-row:hover{border-color:var(--cyan);background:#17283a}.heard-call-name{font-weight:800;font-size:17px}.heard-call-time{color:#8197af;font-size:16px;font-variant-numeric:tabular-nums}.heard-call-hint{padding:0 10px 9px;color:#8297af;font-size:16px}.preset-n{display:inline-flex;align-items:center;justify-content:center;min-width:22px;height:18px;padding:0 4px;background:#f5a9b81c;color:var(--pink);font-size:15px;font-weight:900;border-radius:4px;margin-right:5px}.btn{border:1px solid #43546c;border-radius:6px;padding:7px 10px;background:#243349;color:#eef4fa;font:inherit;font-size:17px;font-weight:750;cursor:pointer;white-space:nowrap}.btn:hover{border-color:#5bcffa;background:#2a4057}.btn.primary{background:var(--cyan);border-color:var(--cyan);color:#08202b}.btn.pink{background:var(--pink);border-color:var(--pink);color:#27151e}.btn.ghost{background:transparent}.btn.danger{background:#382332;border-color:#704456;color:#ffc4ce}.btn.small{padding:5px 8px;font-size:16px}.compose-separator{height:1px;background:#2c3b50}.compose-grid{display:grid;grid-template-columns:minmax(115px,.42fr) minmax(0,1fr);gap:8px}.message-input{min-height:60px}.compose-actions{display:flex;align-items:center;gap:7px;flex-wrap:wrap}.inline-hint{font-size:16px;color:#8297af}
+    .spectrum-panel .panel-body{padding:10px}.spectrum-heading{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:6px}.signal-state{display:inline-flex;align-items:center;gap:6px;color:#8da3ba;font-size:16px}.signal-state .led{width:6px;height:6px}.spectrum-wrap{border:1px solid #263a53;border-radius:6px;overflow:hidden;background:#050d24}.spectrum-canvas{display:block;width:100%;height:150px}.waterfall-canvas{display:block;width:100%;height:58px;border-top:1px solid #263a53}.freq-axis{display:flex;justify-content:space-between;padding:4px 2px 0;color:#8ca2bc;font-size:15px;font-variant-numeric:tabular-nums}.audio-controls{margin-top:10px;padding-top:9px;border-top:1px solid #304056}.audio-select-row{display:grid;grid-template-columns:1fr 1fr;gap:8px}.audio-select-row label{display:block;font-size:16px;color:#a8b8ca;margin-bottom:5px}.audio-select-row .select{padding:7px 8px;font-size:17px}.audio-actions{display:flex;align-items:center;gap:6px;margin-top:8px;flex-wrap:wrap}.audio-hint{margin-top:7px;color:#7f94ad;font-size:16px}.signal-card{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px;margin-top:10px}.signal-stat{padding:7px 8px;background:#111a28;border:1px solid #2f4055;border-radius:6px}.signal-stat span{display:block;color:#8fa4bd;font-size:15px}.signal-stat strong{display:block;font-size:18px;color:#e2edf8;margin-top:2px}
+    .quick-panel .panel-body{display:flex;align-items:center;gap:7px;flex-wrap:wrap}.quick-panel .btn{flex:1}.runtime-status{padding:0 14px 8px;display:flex;justify-content:space-between;align-items:center;gap:8px;color:#8ca1b8;font-size:16px}.runtime-status #statusText{color:#adbed0}.runtime-status #configFile{max-width:48%;overflow-wrap:anywhere;text-align:right}.error-box{margin:0 12px 9px;padding:7px 9px;border-radius:6px;border:1px solid #704456;background:#2b1b27;color:#ffc4ce;font-size:17px;display:none}
+    .monitor-panel{grid-column:1/-1;display:flex;flex-direction:column;min-height:240px}.monitor-head{display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:38px;padding:6px 10px;background:#1c293a;border-bottom:1px solid #34445a}.monitor-tabs{display:flex;align-items:center;gap:4px}.monitor-tab{border:1px solid transparent;border-radius:5px;background:transparent;padding:6px 10px;color:#a7b8cb;font:inherit;font-size:17px;cursor:pointer}.monitor-tab.active{border-color:#40556f;background:#26384e;color:#e9f4ff}.monitor-tools{display:flex;align-items:center;gap:6px}.monitor-screen{flex:1;min-height:190px;background:var(--console);margin:5px;border:1px solid #1b2e65;border-radius:4px;overflow:auto;padding:9px 10px;color:#e5eeff;font:18px/1.55 Consolas,"Cascadia Mono",monospace}.console-line{white-space:pre-wrap;overflow-wrap:anywhere}.console-line .time{color:#738cc7}.console-line.info{color:#f2e95d}.console-line.rx{color:#98f06b}.console-line.tx{color:#5bcffa}.console-line.error{color:#ff9aab}.monitor-list-screen{flex:1;min-height:190px;background:var(--console);margin:5px;border:1px solid #1b2e65;border-radius:4px;overflow:auto;padding:8px}.rx-list,.tx-list{display:grid;gap:6px}.packet{border:1px solid #2b3f69;border-radius:5px;background:#0a143c;padding:8px 9px}.packet-top{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:4px}.call{font-weight:800;color:var(--cyan);overflow-wrap:anywhere}.packet-time{color:#8198c5;font-size:16px;font-variant-numeric:tabular-nums}.route{font-size:16px;color:#8ca2cd;overflow-wrap:anywhere}.packet-info{white-space:pre-wrap;overflow-wrap:anywhere;color:#e7edff;font-size:17px;margin-top:4px}.message-tag{display:inline-block;border:1px solid #6c527b;color:#f3b7ca;background:#f5a9b80d;padding:1px 5px;border-radius:4px;font-size:15px;margin-top:3px}.empty{padding:18px 10px;color:#8ba0c9;text-align:center;font-size:17px}.bottom-note{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:0 14px 8px;color:#6f829a;font-size:15px}.toast{position:fixed;right:16px;bottom:16px;max-width:min(420px,calc(100% - 32px));padding:11px 14px;border:1px solid #41566f;border-radius:8px;background:#1a293c;box-shadow:0 12px 38px #0008;z-index:100;display:none}.toast.show{display:block;animation:pop .16s ease-out}.toast.error{border-color:#8a4a5c;color:#ffc3cb}.toast.success{border-color:#3f806c;color:#b7f2d5}@keyframes pop{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:translateY(0)}}
+    dialog{width:min(760px,calc(100% - 28px));max-height:min(88vh,780px);padding:0;border:1px solid #465972;border-radius:12px;background:#182435;color:var(--text);box-shadow:0 25px 80px #0009}dialog::backdrop{background:#030711b8;backdrop-filter:blur(3px)}.dialog-head{display:flex;align-items:center;justify-content:space-between;padding:13px 16px;border-bottom:1px solid #34465d;background:#1d2b3d}.dialog-head h2{font-size:21px;margin:0}.icon-close{border:0;background:transparent;color:#a9bbd0;font-size:28px;cursor:pointer;line-height:1}.config-tabs{display:flex;gap:5px;flex-wrap:wrap;padding:10px 14px 0}.config-tab{border:1px solid #3a4c63;background:#1b293b;color:#b4c4d7;padding:7px 11px;border-radius:6px;font:inherit;font-size:17px;cursor:pointer}.config-tab.active{border-color:#5bcffa;background:#173448;color:#a9eaff}.config-content{padding:14px 16px 16px;max-height:calc(88vh - 136px);overflow:auto}.config-section[hidden]{display:none}.config-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.field{min-width:0}.field.full{grid-column:1/-1}.field-help{font-size:16px;color:#8297af;margin-top:5px}.setting-toggle{display:flex;align-items:center;justify-content:space-between;gap:10px;border:1px solid #34465b;border-radius:6px;padding:10px 12px;background:#111a28;margin:12px 0}.setting-toggle label{font-size:17px;color:#d8e2ee}.switch{appearance:none;width:35px;height:20px;border-radius:20px;background:#45566c;position:relative;cursor:pointer;flex:none}.switch:before{content:"";position:absolute;width:14px;height:14px;top:3px;left:3px;border-radius:50%;background:#f6f8fb;transition:.15s}.switch:checked{background:#48b8da}.switch:checked:before{left:18px;background:#09212b}.dialog-footer{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:11px 15px;border-top:1px solid #34465d;background:#141f2d}.dialog-footer .hint{font-size:16px;color:#8196ad}.dialog-actions{display:flex;gap:7px}.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+    @media(min-width:1500px){.desktop-layout{grid-template-columns:minmax(0,1.8fr) minmax(370px,.82fr)}.spectrum-canvas{height:165px}.waterfall-canvas{height:62px}.monitor-panel{min-height:220px}.monitor-screen,.monitor-list-screen{min-height:160px}}
+    @media(max-width:1050px){.desktop-layout{grid-template-columns:minmax(0,1fr);grid-template-rows:auto auto auto}.right-column{grid-template-columns:minmax(0,1.2fr) minmax(240px,.8fr)}.monitor-panel{grid-column:1}.monitor-panel{min-height:245px}.toolbar{align-items:flex-start;flex-direction:column}.toolbar-status{width:100%;justify-content:space-between}}
+    @media(max-width:700px){.titlebar{height:auto;min-height:50px;align-items:flex-start;padding:10px 12px}.top-status{gap:5px}.top-status .status-pill:nth-child(3){display:none}.brand-sub{max-width:180px}.menubar{overflow:visible;padding:0 5px;gap:0}.menu-trigger{padding:0 8px;font-size:18px}.dropdown{min-width:190px}.toolbar{padding:8px}.toolbar-group{gap:5px}.toolbar-btn{padding:0 8px}.desktop-layout{padding:8px;gap:8px}.station-row{grid-template-columns:1fr}.frequency-group{grid-template-columns:repeat(2,minmax(0,1fr))}.preset-list{grid-template-columns:1fr}.right-column{grid-template-columns:1fr}.spectrum-canvas{height:150px}.waterfall-canvas{height:58px}.compose-grid{grid-template-columns:1fr}.runtime-status{align-items:flex-start;flex-direction:column}.runtime-status #configFile{text-align:left;max-width:100%}.config-grid{grid-template-columns:1fr}.field.full{grid-column:auto}.monitor-head{align-items:flex-start;flex-direction:column}.monitor-tabs{flex-wrap:wrap}.monitor-tools{align-self:flex-end}.bottom-note{align-items:flex-start;flex-direction:column}}
+    @media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+    .message-input{resize:none!important}
+    @media(min-width:1051px){
+      .desktop-layout{align-items:stretch}
+      .left-column{align-self:stretch}
+      .left-column>.compose-panel{height:100%}
+      .right-column{align-self:stretch;align-content:stretch;grid-template-rows:auto minmax(0,1fr)}
+      .right-column>.callsign-panel{display:flex;flex-direction:column;min-height:0}
+      .right-column>.callsign-panel>.panel-body{display:flex;flex-direction:column;flex:1;min-height:0}
+      .heard-calls-list{max-height:none;min-height:0;flex:1}
+    }
+
+    /* Compact desktop sizing */
+    .titlebar{height:42px;gap:8px;padding:0 12px}
+    .brand{gap:8px}.brand-icon{width:25px;height:25px;border-radius:7px}.brand-icon svg{width:17px;height:17px}
+    .brand-title{font-size:21px}.brand-sub{font-size:15px}
+    .top-status{gap:5px}.status-pill{gap:5px;padding:4px 7px;font-size:16px}.utc{font-size:18px;min-width:54px}
+    .menubar{height:29px;gap:1px;padding:0 7px}.menu-trigger{padding:0 9px;font-size:18px}.dropdown{top:28px;min-width:205px;padding:4px}.dropdown button{padding:6px 8px;gap:8px}
+    .toolbar{min-height:40px;gap:8px;padding:5px 10px}.toolbar-group{gap:5px}.toolbar-btn{height:28px;gap:5px;padding:0 9px;font-size:17px;border-radius:5px}.toolbar-status{gap:8px;font-size:16px}
+    .desktop-layout{grid-template-columns:minmax(0,1.68fr) minmax(300px,.92fr);grid-template-rows:auto minmax(185px,.72fr);gap:8px;padding:8px 10px 6px}
+    .left-column,.right-column{gap:8px}.panel-head{min-height:32px;gap:8px;padding:5px 9px}.panel-title{gap:6px;font-size:17px}.panel-sub{font-size:15px}
+    .panel-body{padding:8px 9px}.station-row{grid-template-columns:minmax(155px,.85fr) minmax(230px,1.35fr);gap:8px}.sat-select-wrap{gap:4px}.field-label{margin-bottom:4px;font-size:15px}.input,.select,.textarea{padding:6px 8px;border-radius:5px;font-size:17px}.frequency-group{gap:6px}.frequency{padding:6px 8px}.frequency small{font-size:15px}.frequency strong{font-size:21px}.station-meta{margin-top:6px}.station-meta strong{font-size:17px}.station-note{margin-top:4px}
+    .compose-panel .panel-body{gap:7px}.compose-label{margin-bottom:5px;gap:7px}.compose-label strong{font-size:17px}.preset-list{gap:5px}.preset-item{gap:5px;padding:5px 6px}.preset-text{font-size:16px}.preset-n{min-width:19px;height:16px;font-size:14px;margin-right:4px}.btn{padding:6px 8px;font-size:16px;border-radius:5px}.btn.small{padding:4px 7px;font-size:15px}.compose-grid{grid-template-columns:minmax(100px,.42fr) minmax(0,1fr);gap:6px}.textarea{min-height:55px}.message-input{min-height:48px}.compose-actions{gap:5px}
+    .spectrum-panel .panel-body{padding:7px}.spectrum-heading{margin-bottom:4px;gap:6px}.signal-state{font-size:15px}.spectrum-canvas{height:125px}.waterfall-canvas{height:42px}.freq-axis{padding-top:3px;font-size:14px}.audio-controls{margin-top:7px;padding-top:7px}.audio-select-row{gap:6px}.audio-select-row label{margin-bottom:4px;font-size:15px}.audio-select-row .select{padding:5px 6px;font-size:16px}.audio-actions{gap:5px;margin-top:6px}.audio-hint{margin-top:5px;font-size:15px}
+    .quick-panel .panel-body{gap:5px}.quick-panel .btn{padding:5px 7px}.signal-card{gap:5px;margin-top:7px}.signal-stat{padding:5px 6px}.signal-stat span{font-size:14px}.signal-stat strong{font-size:17px;margin-top:1px}
+    .monitor-panel{min-height:185px}.monitor-head{min-height:32px;padding:4px 8px}.monitor-tab{padding:4px 7px;font-size:16px}.monitor-tools{gap:4px}.monitor-screen{min-height:135px;margin:4px;padding:7px 8px;font-size:17px;line-height:1.45}.monitor-list-screen{min-height:135px;margin:4px;padding:6px}.packet{padding:6px 7px}.packet-info{font-size:16px}.runtime-status{padding:0 10px 6px;font-size:15px}.error-box{margin:0 10px 6px;padding:5px 7px;font-size:16px}.bottom-note{padding:0 10px 6px;font-size:14px}
+    dialog{width:min(700px,calc(100% - 24px));max-height:min(88vh,740px);border-radius:10px}.dialog-head{padding:10px 13px}.dialog-head h2{font-size:20px}.config-tabs{gap:4px;padding:8px 11px 0}.config-tab{padding:6px 9px;font-size:16px}.config-content{padding:11px 13px 13px}.config-grid{gap:10px}.setting-toggle{padding:8px 10px;margin:9px 0}.dialog-footer{padding:9px 12px}
+    @media(min-width:1500px){.spectrum-canvas{height:145px}.waterfall-canvas{height:52px}.monitor-panel{min-height:205px}.monitor-screen,.monitor-list-screen{min-height:155px}}
+    @media(max-width:1050px){.desktop-layout{grid-template-columns:minmax(0,1fr);grid-template-rows:auto auto auto}.right-column{grid-template-columns:minmax(0,1.2fr) minmax(240px,.8fr)}.monitor-panel{grid-column:1}.monitor-panel{min-height:200px}.toolbar{align-items:flex-start;flex-direction:column}.toolbar-status{width:100%;justify-content:space-between}}
+    @media(max-width:700px){.titlebar{height:auto;min-height:42px;align-items:flex-start;padding:8px 10px}.top-status{gap:4px}.status-pill{padding:3px 5px}.brand-sub{max-width:165px}.menubar{overflow:visible;padding:0 4px;gap:0}.menu-trigger{padding:0 7px;font-size:17px}.dropdown{min-width:180px}.toolbar{padding:7px}.toolbar-group{gap:4px}.toolbar-btn{padding:0 7px}.desktop-layout{padding:7px;gap:7px}.preset-list{grid-template-columns:1fr}.right-column{grid-template-columns:1fr}.spectrum-canvas{height:115px}.waterfall-canvas{height:38px}.recipient-row{grid-template-columns:1fr}.recipient-help{padding:0}.runtime-status{align-items:flex-start;flex-direction:column}.runtime-status #configFile{text-align:left;max-width:100%}.config-grid{grid-template-columns:1fr}.field.full{grid-column:auto}.monitor-head{align-items:flex-start;flex-direction:column}.monitor-tabs{flex-wrap:wrap}.monitor-tools{align-self:flex-end}.bottom-note{align-items:flex-start;flex-direction:column}}
+
+    /* Fixed-viewport radio console: panels resize with the window, never with page scrolling. */
+    html,body{width:100%;height:100%;min-height:0;overflow:hidden!important}
+    .app{height:100vh;height:100dvh;min-height:0;overflow:hidden;display:flex;flex-direction:column}
+    .titlebar{flex:0 0 42px;min-height:42px}
+    .menubar{flex:0 0 29px;min-height:29px}
+    .toolbar{flex:0 0 40px;min-height:40px}
+    .bottom-note{flex:0 0 auto;min-height:19px;max-height:24px;padding-top:2px;padding-bottom:4px;overflow:hidden;white-space:nowrap}
+    .desktop-layout{flex:1 1 0;min-height:0;height:0;overflow:hidden;grid-template-columns:minmax(0,1.58fr) minmax(290px,.92fr);grid-template-rows:minmax(0,1fr);gap:8px;padding:8px 10px 6px;align-items:stretch}
+    .left-column{display:grid;grid-template-rows:minmax(0,1.12fr) minmax(0,.88fr);align-content:stretch;align-self:stretch;min-width:0;min-height:0;gap:8px;overflow:hidden}
+    .right-column{display:grid;grid-template-rows:minmax(100px,.46fr) minmax(76px,.28fr) minmax(0,1.55fr);align-content:stretch;align-self:stretch;min-width:0;min-height:0;gap:8px;overflow:hidden}
+    .left-column>.panel,.right-column>.panel{min-width:0;min-height:0;height:100%;overflow:hidden}
+    .txrx-panel,.monitor-panel,.spectrum-panel,.callsign-panel,.compose-panel{display:flex;flex-direction:column;min-height:0}
+    .txrx-panel .panel-head,.monitor-panel .monitor-head,.spectrum-panel .panel-head,.callsign-panel .panel-head,.compose-panel .panel-head{flex:0 0 auto}
+    .txrx-feed,.monitor-screen,.heard-calls-list{min-height:0;overflow:hidden!important;scrollbar-width:none}
+    .txrx-feed::-webkit-scrollbar,.monitor-screen::-webkit-scrollbar,.heard-calls-list::-webkit-scrollbar{display:none}
+    .txrx-feed{flex:1 1 auto;padding:4px 7px;background:#050c38;color:#e5eeff;font:17px/1.35 Consolas,"Cascadia Mono",monospace}
+    .txrx-row{display:grid;grid-template-columns:30px 56px minmax(0,1fr);align-items:center;gap:6px;min-height:23px;padding:3px 5px;border-bottom:1px solid #192652;white-space:nowrap;overflow:hidden}
+    .txrx-kind{display:inline-grid;place-items:center;border-radius:3px;padding:2px 3px;font-size:15px;font-weight:900;line-height:1.2}
+    .txrx-kind.rx{background:#183b2b;color:#98f06b}.txrx-kind.tx{background:#123548;color:#5bcffa}.txrx-kind.error{background:#452332;color:#ff9aab}
+    .txrx-time{font-size:16px;color:#8198c5;font-variant-numeric:tabular-nums}
+    .txrx-source{font-weight:750;overflow:hidden;text-overflow:ellipsis;color:#d9e7fa}
+    .txrx-info{min-width:0;overflow:hidden;text-overflow:ellipsis;color:#e9efff;font:16px/1.3 Consolas,"Cascadia Mono",monospace;white-space:pre}
+    .txrx-panel .empty{padding:10px 8px;text-align:left}
+    .monitor-panel{min-height:0}
+    .monitor-head{flex:0 0 auto;min-height:32px;padding:4px 8px;display:flex;justify-content:space-between;align-items:center}
+    .monitor-screen{flex:1 1 auto;min-height:0;margin:4px;padding:6px 8px;font-size:16px;line-height:1.35;white-space:normal}
+    .console-line{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .runtime-status{flex:0 0 auto;min-height:22px;padding:2px 8px 4px;gap:8px;font-size:15px;overflow:hidden;white-space:nowrap}
+    .runtime-status #configFile{max-width:48%;text-align:right;overflow:hidden;text-overflow:ellipsis}
+    .error-box{flex:0 0 auto;max-height:42px;overflow:hidden;margin:0 7px 5px;padding:4px 6px;font-size:15px;white-space:nowrap;text-overflow:ellipsis}
+    .spectrum-panel .panel-body{display:flex;flex:1 1 auto;flex-direction:column;min-height:0;padding:6px 7px;overflow:hidden}
+    .spectrum-heading{flex:0 0 auto;min-width:0}.spectrum-heading .signal-state{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.spectrum-wrap{flex:1 1 auto;min-height:30px;display:flex;flex-direction:column;overflow:hidden}
+    .spectrum-canvas{flex:1 1 auto;min-height:34px;height:auto!important;width:100%}.waterfall-canvas{flex:0 0 clamp(18px,2.8vh,30px);height:auto!important;width:100%}
+    .freq-axis{flex:0 0 auto}
+    .callsign-panel{min-height:0}.callsign-body{flex:1 1 auto;min-height:0;overflow:hidden;padding:2px 8px!important}.heard-calls-list{max-height:none!important;height:100%;display:flex;flex-direction:column;gap:0;padding:0}.heard-call-row{flex:0 0 23px;min-height:23px;grid-template-columns:minmax(0,1fr) 66px;width:100%;padding:2px 6px;border:0;border-bottom:1px solid #2c3c53;border-radius:0;background:transparent;text-align:left}.heard-call-name{font-size:16px}.heard-call-time{font-size:15px}.heard-call-hint{flex:0 0 auto;padding:2px 8px 4px;font-size:15px;white-space:nowrap}
+    .compose-panel{min-height:0}.compose-panel .panel-body{display:flex;flex:1 1 auto;flex-direction:column;min-height:0;overflow:hidden;padding:6px 8px;gap:5px}.compose-label{margin-bottom:3px}.compose-label strong{font-size:16px}.compose-label span{font-size:15px}.recipient-row{grid-template-columns:minmax(105px,.6fr) minmax(0,1fr);gap:5px;align-items:end}.recipient-help{padding-bottom:4px;font-size:15px;line-height:1.25}.field-label{margin-bottom:3px;font-size:15px}.preset-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:4px}.preset-button{display:flex;align-items:center;gap:7px;min-width:0;min-height:28px;padding:4px 7px;border:1px solid #35465c;border-radius:5px;background:#111b29;color:#e7eff9;font:inherit;text-align:left;cursor:pointer}.preset-button:hover{border-color:var(--cyan);background:#1a2a3e}.preset-key{flex:0 0 auto;display:inline-grid;place-items:center;min-width:22px;height:18px;border-radius:4px;background:#5bcffa20;color:var(--cyan);font-size:15px;font-weight:900}.preset-name{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:16px;font-weight:750}.preset-button:focus-visible{outline:2px solid var(--cyan);outline-offset:1px}.btn{padding:4px 6px;font-size:15px}.compose-grid{gap:4px}.textarea.message-input{resize:none!important;height:36px;min-height:36px;padding:5px 6px;font-size:16px}.compose-actions{margin-top:4px!important;gap:4px}.compose-actions .inline-hint{font-size:15px}.preset-editor-dialog{width:min(520px,calc(100% - 24px));max-height:min(88vh,600px);padding:0;border:1px solid #43546b;border-radius:10px;background:#182435;color:var(--text);box-shadow:0 18px 60px #0009}.preset-editor-dialog::backdrop{background:#050a12b8}.preset-editor-body{display:grid;gap:9px;padding:12px}.preset-editor-body .textarea{min-height:96px;resize:none}.preset-editor-hint{font-size:16px;color:#8fa5be;line-height:1.4}.preset-editor-footer{display:flex;justify-content:flex-end;gap:7px;padding:9px 12px;border-top:1px solid #33445a}
+    @media(max-height:760px){
+      .desktop-layout{gap:6px;padding:6px 8px 4px}.left-column,.right-column{gap:6px}.right-column{grid-template-rows:minmax(78px,.42fr) minmax(66px,.28fr) minmax(0,1.6fr)}
+      .panel-head{min-height:28px;padding:3px 7px}.panel-title{font-size:16px}.txrx-row{min-height:20px;padding:2px 4px;gap:5px}.txrx-feed{font-size:16px}.monitor-screen{margin:3px;padding:4px 6px;font-size:15px}.runtime-status{min-height:18px;padding:1px 6px 2px}.bottom-note{font-size:14px;min-height:16px}
+      .spectrum-heading{font-size:14px}.waterfall-canvas{flex-basis:clamp(18px,4vh,30px)}.freq-axis{font-size:13px}
+      .compose-panel .panel-body{gap:3px;padding:4px 6px}.compose-label{margin-bottom:2px}.preset-item{min-height:21px}.preset-input{min-height:20px;padding:2px 4px}.recipient-help{font-size:14px}.textarea.message-input{height:30px;min-height:30px}.compose-separator{flex:0 0 1px}
+    }
+    @media(max-width:1050px){
+      .desktop-layout{grid-template-columns:minmax(0,1.12fr) minmax(245px,.88fr);grid-template-rows:minmax(0,1fr)}
+      .right-column{grid-template-columns:minmax(0,1fr);grid-template-rows:minmax(78px,.42fr) minmax(66px,.28fr) minmax(0,1.6fr)}
+      .toolbar{align-items:center;flex-direction:row}.toolbar-status{width:auto;justify-content:flex-end}
+    }
+    @media(max-width:780px){
+      .desktop-layout{grid-template-columns:minmax(0,1fr);grid-template-rows:minmax(150px,.7fr) minmax(0,1.3fr);gap:5px;padding:5px}
+      .left-column{grid-template-columns:minmax(0,1fr) minmax(0,1fr);grid-template-rows:minmax(0,1fr)}
+      .right-column{grid-template-columns:minmax(0,1fr) minmax(0,1fr);grid-template-rows:minmax(78px,.7fr) minmax(0,1.8fr)}
+      .spectrum-panel{grid-column:1;grid-row:1}.callsign-panel{grid-column:2;grid-row:1}.compose-panel{grid-column:1 / -1;grid-row:2}
+      .txrx-row{grid-template-columns:25px 43px minmax(0,1fr);gap:2px}.txrx-info{font-size:14px}
+      .left-column,.right-column{gap:5px}.toolbar-group{gap:3px}.toolbar-btn{padding:0 6px;font-size:16px}.brand-sub{display:none}.top-status{gap:3px}.status-pill{padding:3px 4px;font-size:15px}
+      .txrx-row{grid-template-columns:26px 48px minmax(0,1fr);gap:3px;padding:2px}.txrx-info{font-size:15px}.heard-call-time{display:none}.heard-call-row{grid-template-columns:minmax(0,1fr)}
+      .recipient-row{grid-template-columns:minmax(0,1fr)}.recipient-help{display:none}.compose-panel .panel-body{padding:3px 4px}.preset-list{gap:3px}.preset-button{min-height:24px;padding:3px 5px;gap:4px}.preset-key{min-width:18px;height:16px;font-size:14px}.preset-name{font-size:15px}
+      .bottom-note span:last-child{display:none}
+    }
+
+
+    /* Callsign list shares the lower-left row with the communication monitor.
+       The audio spectrum expands to absorb the callsign panel's former slot. */
+    .left-column{grid-template-columns:minmax(0,2.15fr) minmax(150px,.9fr);grid-template-rows:minmax(0,1.12fr) minmax(0,.88fr);align-content:stretch}
+    .left-column>.txrx-panel{grid-column:1/-1;grid-row:1}
+    .left-column>.monitor-panel{grid-column:1;grid-row:2;min-width:0}
+    .left-column>.callsign-panel{grid-column:2;grid-row:2;min-width:0;display:flex;flex-direction:column;min-height:0}
+    .left-column>.callsign-panel>.callsign-body{display:flex;flex-direction:column;flex:1;min-height:0}
+    .left-column>.callsign-panel .heard-calls-list{max-height:none;min-height:0;flex:1}
+    .right-column{grid-template-columns:minmax(0,1fr);grid-template-rows:minmax(176px,.74fr) minmax(0,1.55fr);align-content:stretch}
+    .right-column>.spectrum-panel{grid-column:1;grid-row:1}
+    .right-column>.compose-panel{grid-column:1;grid-row:2}
+    .right-column>.callsign-panel{display:none!important}
+    .preset-button.is-empty{border-style:dashed;color:#91a5bc;background:#0f1824}
+    .preset-button.is-empty .preset-name{color:#8297af}
+    .preset-reset-toggle{margin:0;padding:8px 10px}
+    .preset-reset-toggle .field-help{margin-top:3px;line-height:1.35}
+    @media(max-width:780px){
+      .left-column{grid-template-columns:minmax(0,1fr) minmax(0,1fr);grid-template-rows:minmax(0,.8fr) minmax(0,1.2fr)}
+      .left-column>.txrx-panel{grid-column:1/-1;grid-row:1}
+      .left-column>.monitor-panel{grid-column:1;grid-row:2}
+      .left-column>.callsign-panel{grid-column:2;grid-row:2}
+      .right-column{grid-template-columns:minmax(0,1fr);grid-template-rows:minmax(0,.65fr) minmax(0,1.35fr)}
+      .right-column>.spectrum-panel{grid-column:1;grid-row:1}
+      .right-column>.compose-panel{grid-column:1;grid-row:2}
+    }
+
+  
+    /* Static chrome is deliberately not selectable; text fields and live logs remain selectable. */
+    body, body *{-webkit-user-select:none!important;user-select:none!important}
+    input,textarea,select,.txrx-feed,.txrx-feed *,.monitor-screen,.monitor-screen *,.heard-calls-list,.heard-calls-list *{-webkit-user-select:text!important;user-select:text!important}
+    /* These three live areas retain scrollbars and are always pinned to the newest row. */
+    .txrx-feed,.monitor-screen,.heard-calls-list{overflow-x:hidden!important;overflow-y:scroll!important;scrollbar-width:thin;scrollbar-color:#526985 #101a28}
+    .txrx-feed::-webkit-scrollbar,.monitor-screen::-webkit-scrollbar,.heard-calls-list::-webkit-scrollbar{display:block;width:8px;height:8px}
+    .txrx-feed::-webkit-scrollbar-track,.monitor-screen::-webkit-scrollbar-track,.heard-calls-list::-webkit-scrollbar-track{background:#101a28}
+    .txrx-feed::-webkit-scrollbar-thumb,.monitor-screen::-webkit-scrollbar-thumb,.heard-calls-list::-webkit-scrollbar-thumb{background:#526985;border-radius:5px;border:1px solid #101a28}
+    /* Waterfall-only display: no analyzer curve, status row, grid, or axis labels. */
+    .spectrum-panel{display:flex;flex-direction:column;min-width:0;min-height:0;padding:0;overflow:hidden;background:#050d24;border-radius:var(--radius)}
+    .spectrum-panel .waterfall-canvas{display:block;flex:1 1 auto;min-width:0;min-height:0;width:100%;height:100%;border:0;border-radius:inherit;background:#050d24}
+    .heard-calls-list .heard-call-row{cursor:pointer!important}
+    .heard-calls-list .heard-call-row:focus-visible{outline:2px solid var(--cyan);outline-offset:-2px}
+
+    /* Responsive wrapping for live exchange and monitor log text. */
+    .txrx-row{grid-template-columns:auto auto minmax(0,1fr);align-items:start;min-width:0;white-space:normal;overflow:visible}
+    .txrx-kind{align-self:start}
+    .txrx-time{white-space:normal;overflow-wrap:anywhere;min-width:0}
+    .txrx-info{display:block;min-width:0;max-width:100%;overflow:visible;text-overflow:clip;white-space:pre-wrap;overflow-wrap:anywhere;word-break:break-word}
+    .console-line{display:block;min-width:0;max-width:100%;white-space:pre-wrap;overflow:visible;text-overflow:clip;overflow-wrap:anywhere;word-break:normal}
+    .heard-call-hint[hidden]{display:none!important}
+
+    .rigctl-test-result{margin:10px 0 0;padding:10px 12px;border:1px solid #3a4a61;border-radius:6px;background:#0d1724;color:#cbd8e7;font:inherit;font-size:16px;line-height:1.45;white-space:pre-wrap;overflow-wrap:anywhere;max-height:220px;overflow:auto}
+    .rigctl-test-result.success{border-color:#38785f;color:#a5efc8}.rigctl-test-result.warning{border-color:#91743a;color:#ffdda0}.rigctl-test-result.error{border-color:#8d4656;color:#ffb9c4}
+    #customText,#presetMessageEdit{white-space:pre-wrap;overflow-wrap:anywhere;tab-size:2;ime-mode:disabled}
+    .preset-editor-tools{display:flex;align-items:flex-start;justify-content:space-between;gap:8px;margin-top:5px}
+    .preset-editor-tools .preset-editor-hint{flex:1;min-width:0;margin:0}
+    .space-insert-btn{flex:0 0 auto;align-self:flex-start;padding:4px 8px;font-size:14px}
+    @media(max-width:520px){.preset-editor-tools{align-items:stretch;flex-direction:column}.space-insert-btn{align-self:flex-start}}
+    </style>
+</head>
+<body>
+<div class="app">
+  <header class="titlebar">
+    <div class="brand">
+      <div class="brand-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v4m0 10v4M3 12h4m10 0h4"/><circle cx="12" cy="12" r="3"/><path d="M5.6 5.6a9 9 0 0 0 0 12.8M18.4 5.6a9 9 0 0 1 0 12.8"/><path d="M8 8 6 6m10 10 2 2m0-12-2 2M8 16l-2 2"/></svg></div>
+      <div class="brand-sub">业余无线电卫星 APRS 终端 · AX.25 / AFSK1200</div>
+    </div>
+    <div class="top-status">
+      <div class="status-pill"><span id="audioLed" class="led"></span><span id="audioLabel">音频初始化中</span></div>
+      <div class="status-pill"><span id="rxLed" class="led"></span><span id="rxLabel">接收已停止</span></div>
+      <div class="status-pill"><span id="pttPill">Hamlib · 4532</span></div>
+      <div id="utcClock" class="utc">--:--:--Z</div>
+    </div>
+  </header>
+
+  <nav class="menubar" aria-label="主菜单">
+    <div class="menu-wrap"><button class="menu-trigger" type="button">文件</button><div class="dropdown">
+      <button type="button" data-action="clear-config">清空配置</button>
+      <button type="button" data-action="export-config">导出配置…</button>
+      <button type="button" data-action="import-config">导入配置…</button>
+      <div class="menu-sep"></div><button type="button" data-action="about">关于 SatAPRS-Go</button>
+    </div></div>
+    <div class="menu-wrap"><button class="menu-trigger" type="button">保存</button><div class="dropdown">
+      <button type="button" data-action="log-mode-all" data-log-mode="all">单个 all.txt 文件 <span class="shortcut" data-log-mode-check="all">✓</span></button>
+      <button type="button" data-action="log-mode-monthly" data-log-mode="monthly">按月拆分日志 <span class="shortcut" data-log-mode-check="monthly"></span></button>
+      <button type="button" data-action="log-mode-yearly" data-log-mode="yearly">按年拆分日志 <span class="shortcut" data-log-mode-check="yearly"></span></button>
+      <button type="button" data-action="open-log-folder">打开日志文件夹</button>
+      <div class="menu-sep"></div><button type="button" data-action="clear-txrx-log">清空 all.txt 日志…</button>
+    </div></div>
+    <button class="menu-trigger" id="configMenuButton" type="button" aria-haspopup="dialog">配置</button>
+  </nav>
+
+  <section class="toolbar" aria-label="快捷工具栏">
+    <div class="toolbar-group">
+      <button class="toolbar-btn primary" id="listenToggle" type="button">◎ 开始监听</button>
+    </div>
+    <div class="toolbar-status"><span>本机呼号 <strong id="toolbarCallsign">未配置</strong></span><span>采样 <strong>48 kHz / Mono</strong></span></div>
+  </section>
+
+  <main class="desktop-layout">
+    <div class="left-column">
+      <section class="panel txrx-panel">
+        <div class="panel-head">
+          <div class="panel-title">TX / RX 信息</div>
+          <span class="panel-sub"><span id="rxCount">0</span> 接收 · <span id="txCount">0</span> 发射</span>
+        </div>
+        <div id="txrxFeed" class="txrx-feed" aria-live="polite">
+          <div class="empty">等待接收解码或发送消息…</div>
+        </div>
+      </section>
+
+      <section class="panel monitor-panel">
+        <div class="monitor-head">
+          <div class="panel-title">通信监视日志</div>
+          <div class="monitor-tools"><button class="btn small" type="button" data-action="clear-monitor">清空日志</button></div>
+        </div>
+        <div id="monitorScreen" class="monitor-screen" role="log" aria-live="polite"><div class="console-line info">SatAPRS-Go 启动中…</div></div>
+        <div class="runtime-status"><span id="statusText">正在初始化…</span><span id="configFile">等待初始化</span></div>
+        <div id="errorBox" class="error-box">最近错误：<span id="errorText"></span></div>
+      </section>
+      <section class="panel callsign-panel">
+        <div class="panel-head"><div class="panel-title">已解码呼号</div></div>
+        <div class="panel-body callsign-body"><div id="heardCallsignList" class="heard-calls-list"><div class="empty">尚无解码呼号</div></div></div>
+        <div class="heard-call-hint">仅显示通过 AX.25 校验的呼号。</div>
+      </section>
+</div>
+
+    <aside class="right-column">
+      <section class="panel spectrum-panel" id="audioPanel" aria-label="音频瀑布图">
+        <canvas id="waterfallCanvas" class="waterfall-canvas" aria-label="实时音频瀑布图"></canvas>
+      </section>
+
+    
+      <section class="panel compose-panel">
+        <div class="panel-head"><div class="panel-title">消息收发</div><span class="panel-sub">左键发送 · 右键编辑预设</span></div>
+        <div class="panel-body">
+          <div class="recipient-row">
+            <div><label class="field-label" for="recipient">对方呼号</label><input id="recipient" class="input" maxlength="16" placeholder="例如 N0CALL-1、N0CALL/5 或 CQ" autocomplete="off"></div>
+            <div class="recipient-help">支持数字后缀 /5（映射为 -5）及 /QRP 等文字别名。</div>
+          </div>
+          <div class="compose-separator"></div>
+          <div class="compose-block">
+            <div class="compose-label"><strong>预设消息</strong><span>左键发送 · 右键编辑备注与正文</span></div>
+            <div id="presetList" class="preset-list">
+              <button class="preset-button" data-preset-slot="0" type="button"><span class="preset-key">F1</span><span class="preset-name">CQ</span></button>
+              <button class="preset-button" data-preset-slot="1" type="button"><span class="preset-key">F2</span><span class="preset-name">5NN</span></button>
+              <button class="preset-button" data-preset-slot="2" type="button"><span class="preset-key">F3</span><span class="preset-name">73</span></button>
+              <button class="preset-button" data-preset-slot="3" type="button"><span class="preset-key">F4</span><span class="preset-name">F4</span></button>
+              <button class="preset-button" data-preset-slot="4" type="button"><span class="preset-key">F5</span><span class="preset-name">F5</span></button>
+              <button class="preset-button" data-preset-slot="5" type="button"><span class="preset-key">F6</span><span class="preset-name">F6</span></button>
+            </div>
+            <div hidden aria-hidden="true" id="presetStore">
+              <input id="presetName1" value="CQ"><input id="preset1" maxlength="67" value="CQ {CALL} {GRID}">
+              <input id="presetName2" value="5NN"><input id="preset2" maxlength="67" value="UR 5NN">
+              <input id="presetName3" value="73"><input id="preset3" maxlength="67" value="TU 73">
+              <input id="presetName4" value="F4"><input id="preset4" maxlength="67" value="">
+              <input id="presetName5" value="F5"><input id="preset5" maxlength="67" value="">
+              <input id="presetName6" value="F6"><input id="preset6" maxlength="67" value="">
+            <input id="presetResetCQ1" type="checkbox" checked><input id="presetResetCQ2" type="checkbox"><input id="presetResetCQ3" type="checkbox"><input id="presetResetCQ4" type="checkbox"><input id="presetResetCQ5" type="checkbox"><input id="presetResetCQ6" type="checkbox"></div>
+          </div>
+          <div class="compose-separator"></div>
+          <div class="compose-block">
+            <div class="compose-label"><strong>自定义 APRS 消息</strong><span>最多 67 字节</span></div>
+            <label class="field-label" for="customText">消息正文</label>
+            <textarea id="customText" class="textarea message-input" maxlength="67" placeholder="输入要发送的 APRS 消息…"></textarea>
+            <div class="compose-actions" style="margin-top:8px"><button class="btn primary" id="sendCustom" type="button">发送自定义消息</button><button class="btn" id="insertCustomSpace" type="button" title="在光标位置插入一个 ASCII 空格">插入空格</button><button class="btn" id="clearCustom" type="button">清空文本</button><span id="charCount" class="inline-hint">0 / 67</span></div>
+          </div>
+        </div>
+      </section>
+    </aside>
+  </main>
+  <footer class="bottom-note"><span>SatAPRS-Go · Go / Wails · AX.25 UI · APRS · Bell 202 AFSK1200</span><span>请在发射前确认电台频率、PTT 模式与音频电平</span></footer>
+</div>
+
+<dialog id="presetEditorDialog" class="preset-editor-dialog">
+  <div class="dialog-head"><h2 id="presetEditorTitle">编辑预设消息</h2><button class="icon-close" id="closePresetEditor" type="button" aria-label="关闭">×</button></div>
+  <div class="preset-editor-body">
+    <div><label class="field-label" for="presetNameEdit">消息备注名称</label><input id="presetNameEdit" class="input" maxlength="24" placeholder="例如：CQ 定位"></div>
+    <div><label class="field-label" for="presetMessageEdit">消息正文</label><textarea id="presetMessageEdit" class="textarea" maxlength="67" placeholder="输入要发送的 APRS 消息"></textarea><div class="preset-editor-tools"><div class="preset-editor-hint">支持变量：{CALL} 本机呼号、{HisCall} 对方呼号、{QTH} 位置描述、{GRID} 网格定位符、{UTC} UTC 时间。消息正文最多 67 字节。</div><button class="btn space-insert-btn" id="insertPresetSpace" type="button" title="在光标位置插入一个 ASCII 空格">插入空格</button></div></div><div class="setting-toggle preset-reset-toggle"><label for="presetResetCQEdit"><strong>发送时将目标呼号设为 CQ</strong><div class="field-help">启用后，按下此预设会先将“对方呼号”改为 CQ，再发送消息。</div></label><input aria-label="发送时将目标呼号设为 CQ" class="switch" id="presetResetCQEdit" type="checkbox"></div>
+  </div>
+  <div class="preset-editor-footer"><button class="btn" id="cancelPresetEdit" type="button">取消</button><button class="btn primary" id="savePresetEdit" type="button">保存预设</button></div>
+</dialog>
+
+<dialog id="settingsDialog">
+  <div class="dialog-head"><h2>配置</h2><button class="icon-close" id="closeSettings" type="button" aria-label="关闭">×</button></div>
+  <div class="config-tabs"><button class="config-tab active" type="button" data-config-tab="station">本机 / APRS</button><button class="config-tab" type="button" data-config-tab="audio">音频 / 声卡</button><button class="config-tab" type="button" data-config-tab="rig">电台 / PTT</button></div>
+  <div class="config-content">
+    <section class="config-section" data-config-section="station">
+      <div class="config-grid">
+        <div class="field"><label class="field-label" for="callsign">本机呼号 / 特殊后缀</label><input id="callsign" class="input" maxlength="16" placeholder="例如 N0CALL、N0CALL/5 或 N0CALL/QRP" autocomplete="off"><div class="field-help">/5 等数字后缀映射为 AX.25 SSID；/QRP 等文字后缀用于本地标识和消息模板，空中源地址仍使用基础呼号与数字 SSID。</div></div>
+        <div class="field"><label class="field-label" for="ssid">SSID（0 至 15）</label><input id="ssid" class="input" type="number" min="0" max="15" value="0"><div class="field-help">呼号填写 /5 等数字后缀时，将优先使用该数字作为 SSID。</div></div>
+        <div class="field"><label class="field-label" for="qth">QTH / 位置描述</label><input id="qth" class="input" placeholder="例如 Example QTH"></div>
+        <div class="field"><label class="field-label" for="grid">Maidenhead 网格定位符</label><input id="grid" class="input" maxlength="8" placeholder="AA00"></div>
+        <div class="field full"><label class="field-label" for="path">APRS 路径，可用逗号分隔</label><input id="path" class="input" placeholder="RS0ISS,SGATE,WIDE2-1"><div class="field-help">路径会写入 AX.25 地址链。请按目标 APRS 中继的使用规则设置，避免不必要的多跳路径。</div></div>
+      </div>
+      <div class="setting-toggle"><label for="autoStartListening"><strong>启动时自动开启监听</strong><div class="field-help">启用后，软件启动时会自动打开所选录音设备并开始监听。</div></label><input id="autoStartListening" class="switch" type="checkbox" aria-label="启动时自动开启监听"></div>
+    </section>
+    <section class="config-section" data-config-section="audio" hidden>
+      <div class="config-grid">
+        <div class="field"><label class="field-label" for="audioInput">录音设备 / 电台接收音频</label><select id="audioInput" class="select"><option value="">正在枚举设备…</option></select></div>
+        <div class="field"><label class="field-label" for="audioOutput">播放设备 / 电台发射音频</label><select id="audioOutput" class="select"><option value="">正在枚举设备…</option></select></div>
+      </div>
+      <div class="compose-actions" style="margin-top:12px"><button class="btn" id="refreshAudio" type="button">重新扫描声卡</button></div>
+    </section>
+    <section class="config-section" data-config-section="rig" hidden>
+      <div class="field"><label class="field-label" for="pttMode">PTT 控制方式</label><select id="pttMode" class="select"><option value="hamlib">Hamlib Net Rigctl</option><option value="vox">VOX（由电台检测音频）</option><option value="rts">串口 RTS</option><option value="dtr">串口 DTR</option><option value="off">不由软件控制（手动 PTT）</option></select></div>
+      <div id="hamlibFields" class="config-grid" style="margin-top:12px">
+        <div class="field"><label class="field-label" for="rigHost">Hamlib rigctld 主机</label><input id="rigHost" class="input" placeholder="127.0.0.1"></div>
+        <div class="field"><label class="field-label" for="rigPort">TCP 端口</label><input id="rigPort" class="input" type="number" min="1" max="65535" value="4532"></div>
+        <div class="field full"><div class="field-help">Hamlib 固定使用通用 PTT 命令 T 1；停止发射时发送 T 0。</div></div>
+      </div>
+      <div id="serialPTTFields" class="config-grid" hidden style="margin-top:12px">
+        <div class="field"><label class="field-label" for="pttSerialPort">PTT 串口</label><input id="pttSerialPort" class="input" placeholder="COM3" autocomplete="off"><div class="field-help">请使用独立 USB 转串口设备；该端口不能同时被其他软件占用。</div></div>
+        <div class="field"><label class="field-label" for="pttActiveHigh">PTT 有效电平</label><select id="pttActiveHigh" class="select"><option value="true">高电平有效</option><option value="false">低电平有效</option></select></div>
+      </div>
+      <div class="config-grid" style="margin-top:12px">
+        <div class="field"><label class="field-label" for="txDelay">PTT 打开后延迟（ms）</label><input id="txDelay" class="input" type="number" min="0" max="5000" value="300"></div>
+        <div class="field"><label class="field-label" for="txTail">音频结束后的保持时间（ms）</label><input id="txTail" class="input" type="number" min="0" max="5000" value="250"></div>
+      </div>
+      <div class="compose-actions" style="margin-top:12px"><button class="btn" id="testRig" type="button">测试 rigctld 连接</button><button class="btn pink" id="testPTT" type="button">测试 PTT（最长 30 秒）</button></div>
+      <div id="pttHelp" class="field-help" style="margin-top:10px"></div>
+      <div class="field-label" style="margin-top:12px">最近一次 rigctld / PTT 测试结果</div>
+      <pre id="rigctlTestResult" class="rigctl-test-result info" aria-live="polite">尚未运行 rigctld/PTT 测试。</pre>
+    </section>
+  </div>
+  <div class="dialog-footer"><span class="hint">设置自动保存至本机配置文件</span><div class="dialog-actions"><button class="btn" id="cancelSettings" type="button">关闭</button><button class="btn primary" id="saveSettings" type="button">保存配置</button></div></div>
+</dialog>
+<div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+<script>
+(() => {
+  const $ = id => document.getElementById(id);
+  let state = null, latestSettings = null, toastTimer = null, deviceSignature = '', consoleEntries = [], lastStatus = '', seenRX = new Set(), seenTX = new Set(), receiveBusy = false, heardSignature = '';
+  const bridge = () => window.go && window.go.main && window.go.main.App;
+  const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  async function invoke(method,...args){const b=bridge();if(!b)throw new Error('Wails 运行时未加载，请通过应用程序启动');return await b[method](...args)}
+  function toast(message,error=false){const el=$('toast');el.textContent=message;el.className='toast show '+(error?'error':'success');clearTimeout(toastTimer);toastTimer=setTimeout(()=>el.className='toast',3600)}
+  function formSettings(){const pttMode=$('pttMode').value;return {callsign:$('callsign').value,ssid:Number($('ssid').value||0),qth:$('qth').value,grid:$('grid').value,path:$('path').value,recipient:$('recipient').value,presetMessages:[1,2,3,4,5,6].map(i=>$('preset'+i).value),presetNames:[1,2,3,4,5,6].map(i=>$('presetName'+i).value),presetResetCQ:[1,2,3,4,5,6].map(i=>$('presetResetCQ'+i).checked),rigHost:$('rigHost').value,rigPort:Number($('rigPort').value||4532),pttMode,pttSerialPort:$('pttSerialPort').value.trim(),pttActiveHigh:$('pttActiveHigh').value!=='false',useRigPTT:pttMode==='hamlib',txDelayMs:Number($('txDelay').value||0),txTailMs:Number($('txTail').value||0),captureDeviceID:$('audioInput').value||'',playbackDeviceID:$('audioOutput').value||'',autoStartListening:$('autoStartListening').checked,logSaveMode:state?.settings?.logSaveMode||'all'}}
+  function populateAudioSelect(id,devices,selected,label){const el=$(id),wanted=selected??'',items=[{id:'',name:'使用系统默认设备',isDefault:true},...(devices||[])];el.replaceChildren();for(const d of items){const opt=document.createElement('option');opt.value=d.id;opt.textContent=d.id===''?d.name:`${d.name}${d.isDefault?' · 默认':''}`;el.appendChild(opt)}if(wanted&&!items.some(d=>d.id===wanted)){const opt=document.createElement('option');opt.value=wanted;opt.textContent=`已保存的设备不可用 (${wanted})`;el.appendChild(opt)}el.value=wanted;el.dataset.loaded='1';}
+  function updateAudioDeviceLists(inputs,outputs,preferredIn='',preferredOut='',force=false){const sig=JSON.stringify([inputs||[],outputs||[]].map(list=>list.map(x=>[x.id,x.name,x.isDefault])));if(force||sig!==deviceSignature){const oldIn=$('audioInput').dataset.loaded==='1'&&$('audioInput').value!==undefined?$('audioInput').value:preferredIn;const oldOut=$('audioOutput').dataset.loaded==='1'&&$('audioOutput').value!==undefined?$('audioOutput').value:preferredOut;populateAudioSelect('audioInput',inputs,oldIn,'录音设备');populateAudioSelect('audioOutput',outputs,oldOut,'播放设备');deviceSignature=sig}}
+  function pttModeName(mode){return ({hamlib:'Hamlib',vox:'VOX',rts:'RTS',dtr:'DTR',off:'手动'})[mode]||'未配置'}
+  function updatePTTModeUI(){const mode=$('pttMode').value;$('hamlibFields').hidden=mode!=='hamlib';$('serialPTTFields').hidden=mode!=='rts'&&mode!=='dtr';$('testRig').hidden=mode!=='hamlib';$('testPTT').hidden=(mode!=='hamlib'&&mode!=='rts'&&mode!=='dtr')&&!state?.pttTestActive;$('pttHelp').textContent=mode==='hamlib'?'点击测试 PTT 开始持续发射，再次点击停止；最多持续 30 秒，超时自动释放。请确认频率、功率和天线条件。':mode==='rts'||mode==='dtr'?'点击测试 PTT 开始持续发射，再次点击停止；最多持续 30 秒，超时自动释放。务必使用专用串口并确认有效电平与接线。':'';updatePTTTestUI(state||{})}
+  function fillSettings(s){latestSettings=s;for(const [id,key] of [['callsign','callsign'],['ssid','ssid'],['qth','qth'],['grid','grid'],['path','path'],['recipient','recipient'],['rigHost','rigHost'],['rigPort','rigPort'],['txDelay','txDelayMs'],['txTail','txTailMs'],['pttMode','pttMode'],['pttSerialPort','pttSerialPort']])$(id).value=s[key]??'';$('pttActiveHigh').value=s.pttActiveHigh===false?'false':'true';$('autoStartListening').checked=!!s.autoStartListening;const messages=s.presetMessages||[],names=s.presetNames||[],resetCQ=s.presetResetCQ||[];for(let i=1;i<=6;i++){$('preset'+i).value=messages[i-1]??'';$('presetName'+i).value=names[i-1]??defaultPresetName(i-1);$('presetResetCQ'+i).checked=resetCQ[i-1]??(i===1);}$('audioInput').value=s.captureDeviceID||'';$('audioOutput').value=s.playbackDeviceID||'';renderStationIdentity(s);renderPresetButtons();updatePTTModeUI();updateCount()}
+  function renderStationIdentity(s){const raw=String(s.callsign||'');const call=raw?(raw.includes('/')?raw:`${raw}${s.ssid?'-'+s.ssid:''}`):'未配置';$('toolbarCallsign').textContent=call}
+  let exchangeSignature = '';
+  function renderPackets(){
+    const rx=state?.received||[],tx=state?.transmitted||[];
+    $('rxCount').textContent=rx.length;$('txCount').textContent=tx.length;
+    const root=$('txrxFeed');
+    // Keep a useful history instead of truncating to the visible height, so the
+    // scrollbar can browse earlier TX/RX records while new records stay pinned below.
+    const historyLimit=200;
+    const events=[
+      ...rx.map(p=>({type:'rx',utc:p.utc||'',timestamp:Number(p.timestamp||0),packet:p.packet||`${p.source||'?'}>${p.destination||'?'}${p.path?','+p.path:''}:${p.info||''}`,key:p.rawHex||`${p.utc}/${p.source}/${p.info}`})),
+      ...tx.map(p=>({type:p.status?.includes('失败')?'error':'tx',utc:p.utc||'',timestamp:Number(p.timestamp||0),packet:p.packet||p.info||'',key:p.rawHex||`${p.utc}/${p.kind}/${p.info}`}))
+    ];
+    events.sort((a,b)=>(a.timestamp&&b.timestamp?a.timestamp-b.timestamp:String(a.utc).localeCompare(String(b.utc))) || (a.type===b.type?0:(a.type==='rx'?-1:1)));
+    const visible=events.slice(-historyLimit),signature=JSON.stringify(visible);
+    if(signature!==exchangeSignature){exchangeSignature=signature;root.innerHTML=visible.length?visible.map(e=>`<div class="txrx-row"><span class="txrx-kind ${e.type}">${e.type==='rx'?'RX':e.type==='tx'?'TX':'ERR'}</span><time class="txrx-time">${esc(e.utc)}Z</time><code class="txrx-info" title="${esc(e.packet)}">${esc(e.packet)}</code></div>`).join(''):'<div class="empty">等待接收解码或发送消息…</div>';}
+    root.scrollTop=root.scrollHeight;
+  }
+  function addConsole(type,text,time=''){consoleEntries.push({type,text,time:time||new Date().toISOString().slice(11,19)});if(consoleEntries.length>350)consoleEntries=consoleEntries.slice(-350);renderConsole()}
+  function syncConsole(s){if(s.status&&s.status!==lastStatus){addConsole('info',s.status);lastStatus=s.status}const rx=[...(s.received||[])].reverse();for(const p of rx){const key=p.rawHex||`${p.utc}/${p.source}/${p.info}`;if(seenRX.has(key))continue;seenRX.add(key);addConsole('rx',`${p.source} > ${p.destination}  via ${p.path||'DIRECT'}  ${p.message?`[${p.messageTo}] ${p.message}`:p.info}`,p.utc)}const tx=[...(s.transmitted||[])].reverse();for(const p of tx){const key=p.rawHex||`${p.utc}/${p.kind}/${p.info}`;if(seenTX.has(key))continue;seenTX.add(key);addConsole(p.status?.includes('失败')?'error':'tx',`${p.kind}: ${p.info}  |  ${p.status}`,p.utc)}}
+  function renderConsole(){const root=$('monitorScreen');root.innerHTML=consoleEntries.map(e=>`<div class="console-line ${e.type}"><span class="time">${esc(e.time)} </span>${esc(e.type==='rx'?'RX  ':e.type==='tx'?'TX  ':e.type==='error'?'ERR ':'')}${esc(e.text)}</div>`).join('');if($('monitorScreen').hidden===false)root.scrollTop=root.scrollHeight}
+  function renderHeardCallsigns(){
+    const root=$('heardCallsignList'),packets=state?.received||[],seen=new Set(),calls=[];
+    for(const p of packets){const call=String(p.source||'').trim().toUpperCase();if(!call||seen.has(call))continue;seen.add(call);calls.push({call,utc:p.utc||''});if(calls.length>=100)break;}
+    calls.reverse();
+    // Preserve up to 100 recent unique callsigns; the list scrolls independently.
+    const shown=calls.slice(-100),signature=JSON.stringify(shown);
+    if(signature!==heardSignature){heardSignature=signature;root.innerHTML=shown.length?shown.map(p=>`<button class="heard-call-row" type="button" data-callsign="${esc(p.call)}"><span class="heard-call-name">${esc(p.call)}</span><span class="heard-call-time">${esc(p.utc)}Z</span></button>`).join(''):'<div class="empty">尚无解码呼号</div>';}
+    root.scrollTop=root.scrollHeight;
+  }
+  // Delegate the double-click handler from the stable list container because
+  // renderHeardCallsigns() replaces each row's HTML whenever the heard list changes.
+  $('heardCallsignList').addEventListener('dblclick',e=>{
+    const row=e.target.closest('.heard-call-row');
+    if(!row)return;
+    const call=String(row.dataset.callsign||'').trim().toUpperCase();
+    if(!call)return;
+    $('recipient').value=call;
+    $('recipient').dispatchEvent(new Event('input',{bubbles:true}));
+    $('recipient').focus();
+    toast(`目标呼号已填入：${call}`);
+  });
+  function updateListenButton(s={}){
+    const button=$('listenToggle');
+    if(!button)return;
+    const starting=!!s.starting, receiving=!!s.receiving;
+    button.disabled=!!receiveBusy||starting;
+    button.textContent=starting?'◌ 正在启动监听…':(receiving?'Ⅱ 停止监听':'◎ 开始监听');
+    button.classList.toggle('primary',!receiving);
+    button.classList.toggle('pink',receiving);
+    button.setAttribute('aria-pressed',String(receiving||starting));
+  }
+  function renderState(s){state=s;updateAudioDeviceLists(s.audioInputs||[],s.audioOutputs||[],s.settings.captureDeviceID||'',s.settings.playbackDeviceID||'');if(!latestSettings)fillSettings(s.settings);updateLogModeChecks(s.settings.logSaveMode||'all');$('audioLed').classList.toggle('on',!!s.audioReady);$('audioLabel').textContent=s.audioReady?'音频引擎就绪':'音频不可用';$('rxLed').classList.toggle('on',!!s.receiving);$('rxLabel').textContent=s.starting?'正在启动监听':(s.receiving?'正在监听':'监听已停止');$('pttPill').textContent='PTT · '+pttModeName(s.settings.pttMode||(s.settings.useRigPTT?'hamlib':'off'));const rigResult=$('rigctlTestResult');if(rigResult){rigResult.textContent=s.rigctlTestInfo||'尚未运行 rigctld/PTT 测试。';rigResult.className='rigctl-test-result '+(s.rigctlTestLevel||'info')} $('statusText').textContent=s.status||'准备就绪';$('configFile').textContent=s.configFile||'尚未创建';const error=s.lastError||s.audioRuntimeError||(!s.audioReady?s.audioError:'');$('errorBox').style.display=error?'block':'none';$('errorText').textContent=(error||'')+(error&&s.diagnosticLog?'\n诊断日志：'+s.diagnosticLog:'');updateListenButton(s);updatePTTTestUI(s);renderStationIdentity(s.settings);renderPackets();renderHeardCallsigns();syncConsole(s);['txrxFeed','monitorScreen','heardCallsignList'].forEach(id=>{$(id).scrollTop=$(id).scrollHeight});}
+  async function poll(){try{const s=await invoke('GetState');renderState(s)}catch(e){$('statusText').textContent=e.message||String(e)}}
+  async function saveCurrent(show=true){const s=formSettings();await invoke('SaveSettings',s);latestSettings=s;renderStationIdentity(s);if(show)toast('配置已保存');return s}
+  function openSettings(tab='station'){document.querySelectorAll('.config-tab').forEach(b=>b.classList.toggle('active',b.dataset.configTab===tab));document.querySelectorAll('[data-config-section]').forEach(s=>s.hidden=s.dataset.configSection!==tab);if(!$('settingsDialog').open)$('settingsDialog').showModal()}
+  function closeSettings(discard=true){const workspace={recipient:$('recipient').value,presets:[1,2,3,4,5,6].map(i=>$('preset'+i).value),names:[1,2,3,4,5,6].map(i=>$('presetName'+i).value)};if(discard&&latestSettings){fillSettings(latestSettings);$('recipient').value=workspace.recipient;workspace.presets.forEach((value,i)=>$('preset'+(i+1)).value=value);workspace.names.forEach((value,i)=>$('presetName'+(i+1)).value=value);renderPresetButtons()}$('settingsDialog').close()}
+  async function sendPreset(index){const slot=index+1;if(!$('preset'+slot).value.trim()){toast(`F${slot} 尚未设置消息正文，请在预设按钮上右键编辑`,true);openPresetEditor(index);return;}if($('presetResetCQ'+slot).checked)$('recipient').value='CQ';try{await saveCurrent(false);await invoke('SendPreset',index,$('recipient').value);toast(`已提交预设消息 F${slot}`);await poll()}catch(e){toast(e.message||String(e),true);await poll()}}
+  async function sendCustom(){try{await saveCurrent(false);await invoke('SendCustomMessage',$('recipient').value,$('customText').value);toast('自定义消息发射完成');await poll()}catch(e){toast(e.message||String(e),true);await poll()}}
+
+  function updatePTTTestUI(s){const b=$('testPTT');if(!b)return;const active=!!s?.pttTestActive,seconds=Math.max(0,Number(s?.pttTestSeconds||0));b.textContent=active?(seconds>0?`停止 PTT（剩余 ${seconds} 秒）`:'停止 PTT（正在尝试释放）'):'测试 PTT（最长 30 秒）';b.classList.toggle('danger',active);b.classList.toggle('pink',!active);b.setAttribute('aria-pressed',active?'true':'false');const mode=$('pttMode')?.value||s?.settings?.pttMode;b.hidden=(mode!=='hamlib'&&mode!=='rts'&&mode!=='dtr')&&!active;}
+  async function testRig(){try{await saveCurrent(false);await invoke('TestRigctl');toast('rigctld 连接测试成功')}catch(e){toast(e.message||String(e),true)}finally{await poll()}}
+  async function testPTT(){const b=$('testPTT');if(b.disabled)return;const active=!!state?.pttTestActive;const mode=$('pttMode').value;if(!active&&(mode==='vox'||mode==='off')){toast(mode==='vox'?'VOX 由电台根据发射音频自动触发，无法单独切换 PTT':'当前为手动 PTT，软件不会切换发射状态',true);return}b.disabled=true;try{if(!active)await saveCurrent(false);await invoke('TestPTT');toast(active?'PTT 已解除':'PTT 已开启，最多持续 30 秒');await poll()}catch(e){toast(e.message||String(e),true)}finally{b.disabled=false;await poll()}}
+  async function toggleRX(){if(receiveBusy||state?.starting)return;receiveBusy=true;updateListenButton(state||{receiving:false});try{if(state?.receiving){await invoke('StopReceive');toast('监听已停止')}else{await invoke('StartReceive');toast('监听启动请求已提交，正在打开录音设备…')}}catch(e){toast(e.message||String(e),true)}finally{receiveBusy=false;await poll()}}
+  async function refreshAudio(){try{openSettings('audio');await invoke('RefreshAudioDevices');await poll();updateAudioDeviceLists(state?.audioInputs||[],state?.audioOutputs||[],$('audioInput').value,$('audioOutput').value,true);toast('声卡列表已刷新')}catch(e){toast(e.message||String(e),true)}}
+  $('saveSettings').addEventListener('click',async()=>{try{await saveCurrent();$('settingsDialog').close();await poll()}catch(e){toast(e.message||String(e),true)}});
+  $('testRig').addEventListener('click',testRig);$('testPTT').addEventListener('click',testPTT);
+  $('listenToggle').addEventListener('click',toggleRX);$('sendCustom').addEventListener('click',sendCustom);$('refreshAudio').addEventListener('click',refreshAudio);
+
+  document.querySelectorAll('[data-preset-slot]').forEach(btn=>{const index=Number(btn.dataset.presetSlot);btn.addEventListener('click',()=>sendPreset(index));btn.addEventListener('contextmenu',e=>{e.preventDefault();openPresetEditor(index)});});$('savePresetEdit').addEventListener('click',savePresetEditor);$('closePresetEditor').addEventListener('click',()=>$('presetEditorDialog').close());$('cancelPresetEdit').addEventListener('click',()=>$('presetEditorDialog').close());$('presetEditorDialog').addEventListener('cancel',e=>{e.preventDefault();$('presetEditorDialog').close()});
+  $('clearCustom').addEventListener('click',()=>{$('customText').value='';updateCount()});$('customText').addEventListener('input',updateCount);$('pttMode').addEventListener('change',updatePTTModeUI);
+  // APRS message fields are ASCII-oriented. Some Windows IMEs report the physical
+  // Space key as keyCode 229 / key "Process" while composing, which caused the
+  // previous fallback to skip it. Handle Space directly on each textarea and
+  // force one ordinary ASCII space at the current selection. The explicit buttons
+  // are an IME-independent fallback and preserve the caret using pointerdown.
+  function isMessageBody(el){return !!el&&(el.id==='customText'||el.id==='presetMessageEdit')}
+  function insertMessageText(el,text){
+    if(!isMessageBody(el)||el.disabled||el.readOnly)return false;
+    const value=String(el.value??'');
+    let start=Number.isInteger(el.selectionStart)?el.selectionStart:value.length;
+    let end=Number.isInteger(el.selectionEnd)?el.selectionEnd:start;
+    start=Math.max(0,Math.min(start,value.length));end=Math.max(start,Math.min(end,value.length));
+    const remaining=value.length-(end-start),max=Number(el.maxLength);
+    if(max>=0&&remaining+text.length>max)text=text.slice(0,Math.max(0,max-remaining));
+    if(!text)return false;
+    const updated=value.slice(0,start)+text+value.slice(end);
+    el.value=updated;
+    const caret=start+text.length;
+    try{el.setSelectionRange(caret,caret)}catch{}
+    let ev;
+    try{ev=new InputEvent('input',{bubbles:true,inputType:'insertText',data:text})}
+    catch{ev=new Event('input',{bubbles:true})}
+    el.dispatchEvent(ev);
+    return true;
+  }
+  function isPhysicalSpace(e){return e.code==='Space'||e.key===' '||e.key==='Spacebar'||e.keyCode===32||e.which===32}
+  ['customText','presetMessageEdit'].forEach(id=>{
+    const el=$(id);
+    el.addEventListener('keydown',e=>{
+      // Use physical key code as well as key text because some IMEs expose Space
+      // with key="Process" and keyCode=229. Never defer this key to IME candidate
+      // selection in these ASCII APRS message editors.
+      if(!isPhysicalSpace(e)||e.ctrlKey||e.altKey||e.metaKey)return;
+      e.preventDefault();e.stopImmediatePropagation();
+      insertMessageText(el,' ');
+    },true);
+    // Normalize non-breaking space if an input method inserts one instead of U+0020.
+    el.addEventListener('beforeinput',e=>{
+      if(e.inputType==='insertText'&&e.data==='\u00a0'){
+        e.preventDefault();insertMessageText(el,' ');
+      }
+    },true);
+  });
+  function bindSpaceButton(buttonId,textareaId){
+    const button=$(buttonId),textarea=$(textareaId);
+    button.addEventListener('pointerdown',e=>e.preventDefault());
+    button.addEventListener('click',()=>{textarea.focus();insertMessageText(textarea,' ')});
+  }
+  bindSpaceButton('insertCustomSpace','customText');
+  bindSpaceButton('insertPresetSpace','presetMessageEdit');
+  $('closeSettings').addEventListener('click',()=>closeSettings(true));$('cancelSettings').addEventListener('click',()=>closeSettings(true));$('settingsDialog').addEventListener('cancel',e=>{e.preventDefault();closeSettings(true)});$('settingsDialog').addEventListener('click',e=>{if(e.target===$('settingsDialog'))e.preventDefault()});
+  document.querySelectorAll('[data-config-tab]').forEach(b=>{if(b.classList.contains('config-tab'))b.addEventListener('click',()=>openSettings(b.dataset.configTab))});
+  $('configMenuButton').addEventListener('click',()=>openSettings('station'));
+  document.querySelectorAll('.menu-trigger:not(#configMenuButton)').forEach(b=>b.addEventListener('click',e=>{const root=b.closest('.menu-wrap'),was=root.classList.contains('open');document.querySelectorAll('.menu-wrap.open').forEach(x=>x.classList.remove('open'));if(!was)root.classList.add('open');e.stopPropagation()}));
+  document.addEventListener('click',e=>{if(!e.target.closest('.menu-wrap'))document.querySelectorAll('.menu-wrap.open').forEach(x=>x.classList.remove('open'))});
+  document.querySelectorAll('[data-action]').forEach(b=>b.addEventListener('click',async()=>{const action=b.dataset.action,tab=b.dataset.configTab||'station';document.querySelectorAll('.menu-wrap.open').forEach(x=>x.classList.remove('open'));switch(action){case 'clear-config':if(!confirm('清空配置并恢复所有内置默认值？当前本机设置会被覆盖。'))break;try{await invoke('ClearConfig');await poll();if(state?.settings)fillSettings(state.settings);toast('配置已恢复为默认值')}catch(e){toast(e.message||String(e),true)}break;case 'export-config':try{const exported=await invoke('ExportConfigToFile');if(exported)toast('配置已导出')}catch(e){toast(e.message||String(e),true)}break;case 'import-config':if(!confirm('导入配置会覆盖当前设置，是否继续？'))break;try{const imported=await invoke('ImportConfigFromFile');if(imported){await poll();if(state?.settings)fillSettings(state.settings);toast('配置已导入并应用')}}catch(e){toast(e.message||String(e),true)}break;case 'open-log-folder':try{await invoke('OpenLogFolder');toast('已打开日志文件夹')}catch(e){toast(e.message||String(e),true)}break;case 'log-mode-all':case 'log-mode-monthly':case 'log-mode-yearly':try{const mode=action==='log-mode-monthly'?'monthly':action==='log-mode-yearly'?'yearly':'all';await invoke('SetLogSaveMode',mode);await poll();toast(mode==='monthly'?'日志将按月保存':mode==='yearly'?'日志将按年保存':'日志将保存到单个 all.txt')}catch(e){toast(e.message||String(e),true)}break;case 'clear-txrx-log':if(!confirm('清空本软件生成的全部 TX/RX 日志文件（all.txt 及按月/按年分拆文件）？此操作不可撤销。'))break;try{await invoke('ClearTxRxLog');toast('TX/RX 日志已清空');await poll()}catch(e){toast(e.message||String(e),true)}break;case 'focus-recipient':$('recipient').focus();break;case 'focus-custom':$('customText').focus();break;case 'send-custom':sendCustom();break;case 'send-f1':sendPreset(0);break;case 'clear-monitor':consoleEntries=[];renderConsole();break;case 'scroll-bottom':$('monitorScreen').scrollTop=$('monitorScreen').scrollHeight;break;case 'about':toast('SatAPRS-Go · AX.25 / APRS 卫星终端');break;}}));
+  function updateLogModeChecks(mode){document.querySelectorAll('[data-log-mode-check]').forEach(el=>{el.textContent=el.dataset.logModeCheck===mode?'✓':''});}
+  function defaultPresetName(index){return ['CQ','5NN','73','F4','F5','F6'][index]||`F${index+1}`}
+  function renderPresetButtons(){document.querySelectorAll('[data-preset-slot]').forEach(button=>{const i=Number(button.dataset.presetSlot),empty=!$('preset'+(i+1)).value.trim(),name=$('presetName'+(i+1)).value.trim()||defaultPresetName(i);button.querySelector('.preset-name').textContent=name;button.classList.toggle('is-empty',empty);button.title=empty?`${name}（尚未设置正文）\n右键编辑`:`${name}\n左键发送 · 右键编辑`;});}
+  let editingPresetIndex=-1;
+  function openPresetEditor(index){editingPresetIndex=index;const slot=index+1;$('presetEditorTitle').textContent=`编辑 F${slot} 预设消息`;$('presetNameEdit').value=$('presetName'+slot).value||defaultPresetName(index);$('presetMessageEdit').value=$('preset'+slot).value||'';$('presetResetCQEdit').checked=$('presetResetCQ'+slot).checked;$('presetEditorDialog').showModal();$('presetNameEdit').focus()}
+  async function savePresetEditor(){if(editingPresetIndex<0)return;const name=$('presetNameEdit').value.trim()||defaultPresetName(editingPresetIndex);const message=$('presetMessageEdit').value;if(new TextEncoder().encode(message).length>67){toast('消息正文超过 67 字节',true);return;}const i=editingPresetIndex+1;const oldName=$('presetName'+i).value,oldMessage=$('preset'+i).value,oldResetCQ=$('presetResetCQ'+i).checked;$('presetName'+i).value=name;$('preset'+i).value=message;$('presetResetCQ'+i).checked=$('presetResetCQEdit').checked;try{await saveCurrent(false);renderPresetButtons();$('presetEditorDialog').close();toast(`F${i} 预设已保存`)}catch(e){$('presetName'+i).value=oldName;$('preset'+i).value=oldMessage;$('presetResetCQ'+i).checked=oldResetCQ;renderPresetButtons();toast(e.message||String(e),true)}}
+  function updateCount(){const n=new TextEncoder().encode($('customText').value).length;$('charCount').textContent=`${n} / 67`;$('charCount').style.color=n>67?'#ff9aab':''}
+  document.addEventListener('keydown',e=>{if(e.key==='Escape')document.querySelectorAll('.menu-wrap.open').forEach(x=>x.classList.remove('open'));if(/^F[1-6]$/.test(e.key)&&!$('settingsDialog').open&&!$('presetEditorDialog').open){e.preventDefault();sendPreset(Number(e.key.slice(1))-1)}});
+  function sizeCanvas(canvas){const dpr=window.devicePixelRatio||1,w=Math.max(1,canvas.clientWidth),h=Math.max(1,canvas.clientHeight);if(canvas.width!==Math.round(w*dpr)||canvas.height!==Math.round(h*dpr)){canvas.width=Math.round(w*dpr);canvas.height=Math.round(h*dpr)}const ctx=canvas.getContext('2d');ctx.setTransform(dpr,0,0,dpr,0,0);return {ctx,w,h}}
+  // The FFT engine samples 0..24 kHz. APRS AFSK tones (1200/2200 Hz)
+  // occupy only the leftmost slice of that spectrum, so display the 0..4 kHz
+  // receive-audio band stretched across the complete waterfall canvas.
+  const waterfallDisplayMaxHz=4000;
+  const waterfallSampleRate=48000;
+  let spectrumSmooth=Array(2048).fill(0),waterfallTick=0,waterfallCanvasInitialized=false;
+  function colorFor(v){
+    const x=Math.max(0,Math.min(1,v));
+    if(x<.28){const t=x/.28;return `rgb(${Math.round(3+5*t)},${Math.round(8+27*t)},${Math.round(24+92*t)})`;}
+    if(x<.62){const t=(x-.28)/.34;return `rgb(${Math.round(8+8*t)},${Math.round(35+100*t)},${Math.round(116+95*t)})`;}
+    if(x<.84){const t=(x-.62)/.22;return `rgb(${Math.round(16+50*t)},${Math.round(135+95*t)},${Math.round(211-35*t)})`;}
+    const t=(x-.84)/.16;return `rgb(${Math.round(66+174*t)},${Math.round(230-35*t)},${Math.round(176-75*t)})`;
+  }
+  function drawWaterfall(values){
+    if(!Array.isArray(values)||values.length===0)return;
+    if(spectrumSmooth.length!==values.length)spectrumSmooth=Array(values.length).fill(0);
+    spectrumSmooth=spectrumSmooth.map((v,i)=>v*.24+Math.max(0,Math.min(1,Number(values[i])||0))*.76);
+    const canvas=$('waterfallCanvas');if(!canvas)return;
+    const dpr=window.devicePixelRatio||1;
+    const resized=canvas.width!==Math.round(Math.max(1,canvas.clientWidth)*dpr)||canvas.height!==Math.round(Math.max(1,canvas.clientHeight)*dpr);
+    const {ctx,w,h}=sizeCanvas(canvas);
+    if(resized||!waterfallCanvasInitialized){ctx.fillStyle='#050d24';ctx.fillRect(0,0,w,h);waterfallCanvasInitialized=true;}
+    // Move the existing waterfall down by one display pixel and paint the newest
+    // frequency row at the top. No axes, markers, labels, curves, or grid lines.
+    waterfallTick++;
+    if(waterfallTick%2!==0)return;
+    if(h>1){ctx.drawImage(canvas,0,0,canvas.width,Math.max(1,Math.round((h-1)*dpr)),0,1,w,h-1);}
+    const displayBands=Math.max(1,Math.min(spectrumSmooth.length,
+      Math.ceil(waterfallDisplayMaxHz/(waterfallSampleRate/2)*spectrumSmooth.length)));
+    for(let x=0;x<Math.ceil(w);x++){
+      const first=Math.min(displayBands-1,Math.floor(x/Math.max(1,w)*displayBands));
+      const last=Math.min(displayBands,Math.max(first+1,Math.floor((x+1)/Math.max(1,w)*displayBands)));
+      let level=0;for(let i=first;i<last;i++)level=Math.max(level,spectrumSmooth[i]);
+      ctx.fillStyle=colorFor(level);ctx.fillRect(x,0,1,1);
+    }
+  }
+  async function refreshSpectrum(){try{const values=await invoke('GetSpectrum');if(Array.isArray(values))drawWaterfall(values)}catch(_){} }
+  function updateClock(){$('utcClock').textContent=new Date().toISOString().slice(11,19)+'Z'}
+  addConsole('info','SatAPRS-Go 启动中，等待音频和电台状态…');poll();updateClock();setInterval(poll,1000);setInterval(refreshSpectrum,100);setInterval(updateClock,1000);window.addEventListener('resize',()=>{exchangeSignature='';heardSignature='';renderPackets();renderHeardCallsigns();drawWaterfall(spectrumSmooth)});renderPresetButtons();
+})();
+</script>
+</body>
+</html>
