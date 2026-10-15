@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"encoding/json"
 	"fmt"
 	"net"
 	"os"
@@ -49,6 +50,38 @@ func TestDefaultAPRSPathAndOperationalLogMode(t *testing.T) {
 	}
 }
 
+func TestDefaultThemeIsDayMode(t *testing.T) {
+	if got := defaultSettings().Theme; got != "light" {
+		t.Fatalf("default theme = %q, want light", got)
+	}
+}
+
+func TestSetThemePersistsWithoutChangingOtherSettings(t *testing.T) {
+	app := NewApp()
+	app.configFile = filepath.Join(t.TempDir(), "settings.json")
+	app.settings.Callsign = "BH2VSQ"
+	if err := app.SetTheme("dark"); err != nil {
+		t.Fatalf("SetTheme(dark): %v", err)
+	}
+	if app.settings.Theme != "dark" || app.settings.Callsign != "BH2VSQ" {
+		t.Fatalf("theme change unexpectedly modified settings: %#v", app.settings)
+	}
+	data, err := os.ReadFile(app.configFile)
+	if err != nil {
+		t.Fatalf("read settings.json: %v", err)
+	}
+	var saved Settings
+	if err := json.Unmarshal(data, &saved); err != nil {
+		t.Fatalf("decode settings.json: %v", err)
+	}
+	if saved.Theme != "dark" || saved.Callsign != "BH2VSQ" {
+		t.Fatalf("unexpected persisted settings: %#v", saved)
+	}
+	if err := app.SetTheme("sepia"); err == nil {
+		t.Fatal("SetTheme should reject unsupported themes")
+	}
+}
+
 func TestAutoStartListeningDisabledByDefault(t *testing.T) {
 	if defaultSettings().AutoStartListening {
 		t.Fatal("auto-start listening must be disabled by default")
@@ -71,6 +104,36 @@ func TestFormatTNC2Packet(t *testing.T) {
 	want := "N0CALL>APRS,WIDE1-1,WIDE2-2*::N2TEST   :Hello {HisCall}"
 	if got := formatTNC2Packet(packet); got != want {
 		t.Fatalf("formatTNC2Packet() = %q, want %q", got, want)
+	}
+}
+
+func TestFormatUISSFrame(t *testing.T) {
+	packet := aprs.Packet{
+		Source:      "BH2VSQ",
+		Destination: "APRS",
+		Path:        []string{"ARISS", "DP0SNX", "WIDE2-1"},
+		Info:        ":CQ       :CQ BH2VSQ PN11",
+	}
+	at := time.Date(2026, time.October, 15, 14, 0, 11, 0, time.UTC)
+	want := fmt.Sprintf("Fm BH2VSQ To APRS Via ARISS,DP0SNX,WIDE2-1 <UI pid=F0 Len=25 >[%s]\n:CQ       :CQ BH2VSQ PN11", at.Local().Format("15:04:05"))
+	if got := formatUISSFrame(packet, at); got != want {
+		t.Fatalf("formatUISSFrame() = %q, want %q", got, want)
+	}
+}
+
+func TestFrameDestinationOptions(t *testing.T) {
+	for _, value := range []string{"CQ", "APRS", "BEACON", "QST", "APRSAT", " aprs "} {
+		if !isValidFrameDestination(value) {
+			t.Errorf("expected %q to be a valid frame destination", value)
+		}
+	}
+	for _, value := range []string{"", "N0CALL", "APRS-1", "APRS/5"} {
+		if isValidFrameDestination(value) {
+			t.Errorf("did not expect %q to be a valid frame destination", value)
+		}
+	}
+	if got := defaultSettings().FrameDestination; got != "APRS" {
+		t.Fatalf("default frame destination = %q, want APRS", got)
 	}
 }
 

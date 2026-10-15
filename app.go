@@ -26,17 +26,18 @@ import (
 const appName = "SatAPRS-Go"
 
 type Settings struct {
-	Callsign       string   `json:"callsign"`
-	SSID           int      `json:"ssid"`
-	QTH            string   `json:"qth"`
-	Grid           string   `json:"grid"`
-	Path           string   `json:"path"`
-	Recipient      string   `json:"recipient"`
-	PresetMessages []string `json:"presetMessages"`
-	PresetNames    []string `json:"presetNames"`
-	PresetResetCQ  []bool   `json:"presetResetCQ"`
-	RigHost        string   `json:"rigHost"`
-	RigPort        int      `json:"rigPort"`
+	Callsign         string   `json:"callsign"`
+	SSID             int      `json:"ssid"`
+	QTH              string   `json:"qth"`
+	Grid             string   `json:"grid"`
+	Path             string   `json:"path"`
+	FrameDestination string   `json:"frameDestination"`
+	Recipient        string   `json:"recipient"`
+	PresetMessages   []string `json:"presetMessages"`
+	PresetNames      []string `json:"presetNames"`
+	PresetResetCQ    []bool   `json:"presetResetCQ"`
+	RigHost          string   `json:"rigHost"`
+	RigPort          int      `json:"rigPort"`
 	// UseRigPTT is retained for migration from older settings files.
 	UseRigPTT          bool   `json:"useRigPTT"`
 	PTTMode            string `json:"pttMode"`
@@ -48,6 +49,7 @@ type Settings struct {
 	PlaybackDeviceID   string `json:"playbackDeviceID"`
 	AutoStartListening bool   `json:"autoStartListening"`
 	LogSaveMode        string `json:"logSaveMode"`
+	Theme              string `json:"theme"`
 }
 
 type PacketView struct {
@@ -146,7 +148,7 @@ func NewApp() *App {
 
 func defaultSettings() Settings {
 	return Settings{
-		Path: "RS0ISS,SGATE,WIDE2-1", Recipient: "CQ", LogSaveMode: "all",
+		Path: "RS0ISS,SGATE,WIDE2-1", FrameDestination: "APRS", Recipient: "CQ", LogSaveMode: "all", Theme: "light",
 		PresetNames: []string{"CQ", "5NN", "73", "F4", "F5", "F6"},
 		PresetMessages: []string{
 			"CQ {CALL} {GRID}",
@@ -205,6 +207,10 @@ func (a *App) startup(ctx context.Context) {
 			if loaded.Recipient == "" {
 				loaded.Recipient = defaults.Recipient
 			}
+			loaded.FrameDestination = strings.ToUpper(strings.TrimSpace(loaded.FrameDestination))
+			if !isValidFrameDestination(loaded.FrameDestination) {
+				loaded.FrameDestination = defaults.FrameDestination
+			}
 			if loaded.Path == "" || loaded.Path == "ARISS" {
 				// ARISS was the built-in default in older builds; migrate it to the
 				// currently requested default while preserving custom digipeater paths.
@@ -212,6 +218,10 @@ func (a *App) startup(ctx context.Context) {
 			}
 			if loaded.LogSaveMode == "" {
 				loaded.LogSaveMode = defaults.LogSaveMode
+			}
+			// Older configuration files have no theme field; migrate them to day mode.
+			if loaded.Theme != "light" && loaded.Theme != "dark" {
+				loaded.Theme = defaults.Theme
 			}
 			if loaded.TxDelayMS < 0 || loaded.TxDelayMS > 5000 {
 				loaded.TxDelayMS = defaults.TxDelayMS
@@ -377,6 +387,25 @@ func (a *App) GetSpectrum() []float64 {
 	return engine.Spectrum()
 }
 
+// SetTheme persists only the visual theme preference without applying unrelated
+// unsaved form edits or interrupting an active PTT test.
+func (a *App) SetTheme(theme string) error {
+	theme = strings.ToLower(strings.TrimSpace(theme))
+	if theme != "light" && theme != "dark" {
+		return errors.New("界面主题必须是白天模式或黑夜模式")
+	}
+	a.mu.Lock()
+	previous := a.settings.Theme
+	a.settings.Theme = theme
+	if err := a.saveSettingsLocked(); err != nil {
+		a.settings.Theme = previous
+		a.mu.Unlock()
+		return fmt.Errorf("保存界面主题失败：%w", err)
+	}
+	a.mu.Unlock()
+	return nil
+}
+
 func (a *App) SaveSettings(s Settings) error {
 	// Applying new PTT settings while a test is held must first release the
 	// old endpoint; otherwise a COM port or rigctld host change could orphan TX.
@@ -387,7 +416,21 @@ func (a *App) SaveSettings(s Settings) error {
 	s.QTH = strings.TrimSpace(s.QTH)
 	s.Grid = strings.ToUpper(strings.TrimSpace(s.Grid))
 	s.Path = strings.TrimSpace(s.Path)
+	s.FrameDestination = strings.ToUpper(strings.TrimSpace(s.FrameDestination))
+	if s.FrameDestination == "" {
+		s.FrameDestination = defaultSettings().FrameDestination
+	}
+	if !isValidFrameDestination(s.FrameDestination) {
+		return fmt.Errorf("帧目的地址必须是 CQ、APRS、BEACON、QST 或 APRSAT")
+	}
 	s.Recipient = strings.ToUpper(strings.TrimSpace(s.Recipient))
+	s.Theme = strings.ToLower(strings.TrimSpace(s.Theme))
+	if s.Theme == "" {
+		s.Theme = defaultSettings().Theme
+	}
+	if s.Theme != "light" && s.Theme != "dark" {
+		return errors.New("界面主题必须是白天模式或黑夜模式")
+	}
 	s.RigHost = strings.TrimSpace(s.RigHost)
 	s.PTTMode = strings.ToLower(strings.TrimSpace(s.PTTMode))
 	s.PTTSerialPort = strings.TrimSpace(s.PTTSerialPort)
@@ -1222,7 +1265,11 @@ func (a *App) sendInfo(info []byte, kind string) error {
 		source = fmt.Sprintf("%s-%d", source, wireSSID)
 	}
 	path := splitPath(s.Path)
-	frame, err := aprs.EncodeUIFrame(source, "APRS", path, info)
+	destination := strings.ToUpper(strings.TrimSpace(s.FrameDestination))
+	if !isValidFrameDestination(destination) {
+		destination = defaultSettings().FrameDestination
+	}
+	frame, err := aprs.EncodeUIFrame(source, destination, path, info)
 	if err != nil {
 		a.setError(err)
 		return err
@@ -1320,7 +1367,7 @@ func (a *App) onReceive(packet aprs.Packet) {
 	}
 	to, msg, hasMessage := aprs.ParseAPRSMessage(packet.Info)
 	view := PacketView{UTC: now.Format("15:04:05"), Timestamp: now.UnixMilli(), Source: packet.Source, Destination: packet.Destination,
-		Path: strings.Join(packet.Path, ","), Info: packet.Info, RawHex: strings.ToUpper(hex.EncodeToString(packet.Raw)), PacketText: formatTNC2Packet(packet)}
+		Path: strings.Join(packet.Path, ","), Info: packet.Info, RawHex: strings.ToUpper(hex.EncodeToString(packet.Raw)), PacketText: formatUISSFrame(packet, now)}
 	if hasMessage {
 		view.MessageTo, view.Message = to, msg
 	}
@@ -1330,15 +1377,18 @@ func (a *App) onReceive(packet aprs.Packet) {
 	}
 	a.status = fmt.Sprintf("收到 AX.25/APRS 帧: %s → %s", packet.Source, packet.Destination)
 	a.mu.Unlock()
-	a.appendTxRxLog(now, "RX", fmt.Sprintf("%s | RAW=%s", view.PacketText, view.RawHex))
+	// Keep the on-disk operational log in TNC2 form; only the TX/RX panel uses UISS formatting.
+	a.appendTxRxLog(now, "RX", fmt.Sprintf("%s | RAW=%s", formatTNC2Packet(packet), view.RawHex))
 }
 
 func (a *App) addTX(kind, info, status string, frame []byte) {
-	packetText := info
-	if packet, err := aprs.DecodeUIFrame(frame); err == nil {
-		packetText = formatTNC2Packet(packet)
-	}
 	now := time.Now().UTC()
+	packetText := info
+	logPacketText := info
+	if packet, err := aprs.DecodeUIFrame(frame); err == nil {
+		packetText = formatUISSFrame(packet, now)
+		logPacketText = formatTNC2Packet(packet)
+	}
 	rawHex := strings.ToUpper(hex.EncodeToString(frame))
 	a.mu.Lock()
 	view := TxView{UTC: now.Format("15:04:05"), Timestamp: now.UnixMilli(), Kind: kind, Info: info, Status: status, RawHex: rawHex, PacketText: packetText}
@@ -1347,7 +1397,7 @@ func (a *App) addTX(kind, info, status string, frame []byte) {
 		a.transmitted = a.transmitted[:100]
 	}
 	a.mu.Unlock()
-	a.appendTxRxLog(now, "TX", fmt.Sprintf("kind=%s %s | status=%s | RAW=%s", kind, packetText, status, rawHex))
+	a.appendTxRxLog(now, "TX", fmt.Sprintf("kind=%s %s | status=%s | RAW=%s", kind, logPacketText, status, rawHex))
 }
 
 // formatTNC2Packet renders an AX.25 UI frame as the conventional APRS/TNC2
@@ -1358,6 +1408,26 @@ func formatTNC2Packet(packet aprs.Packet) string {
 		line += "," + strings.Join(packet.Path, ",")
 	}
 	return line + ":" + packet.Info
+}
+
+// formatUISSFrame renders the decoded AX.25 UI frame in the two-line monitor
+// style used by UISS. The information length is measured in bytes, as on air.
+func formatUISSFrame(packet aprs.Packet, at time.Time) string {
+	header := fmt.Sprintf("Fm %s To %s", packet.Source, packet.Destination)
+	if len(packet.Path) > 0 {
+		header += " Via " + strings.Join(packet.Path, ",")
+	}
+	header += fmt.Sprintf(" <UI pid=F0 Len=%d >[%s]", len([]byte(packet.Info)), at.Local().Format("15:04:05"))
+	return header + "\n" + packet.Info
+}
+
+func isValidFrameDestination(value string) bool {
+	switch strings.ToUpper(strings.TrimSpace(value)) {
+	case "CQ", "APRS", "BEACON", "QST", "APRSAT":
+		return true
+	default:
+		return false
+	}
 }
 
 func (a *App) settingsSnapshot() Settings {
