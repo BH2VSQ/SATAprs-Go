@@ -148,7 +148,7 @@ func NewApp() *App {
 
 func defaultSettings() Settings {
 	return Settings{
-		Path: "RS0ISS,SGATE,WIDE2-1", FrameDestination: "APRS", Recipient: "CQ", LogSaveMode: "all", Theme: "light",
+		Path: "ARISS,DP0SNX,WIDE2-1", FrameDestination: "APRS", Recipient: "CQ", LogSaveMode: "all", Theme: "light",
 		PresetNames: []string{"CQ", "5NN", "73", "F4", "F5", "F6"},
 		PresetMessages: []string{
 			"CQ {CALL} {GRID}",
