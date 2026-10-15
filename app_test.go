@@ -42,7 +42,7 @@ func TestNormalizePresetMessagesPreservesSpaces(t *testing.T) {
 
 func TestDefaultAPRSPathAndOperationalLogMode(t *testing.T) {
 	s := defaultSettings()
-	if s.Path != "RS0ISS,SGATE,WIDE2-1" {
+	if s.Path != "ARISS,DP0SNX,WIDE2-1" {
 		t.Fatalf("default APRS path = %q", s.Path)
 	}
 	if s.LogSaveMode != "all" {
