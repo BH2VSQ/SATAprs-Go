@@ -42,7 +42,7 @@ func TestNormalizePresetMessagesPreservesSpaces(t *testing.T) {
 
 func TestDefaultAPRSPathAndOperationalLogMode(t *testing.T) {
 	s := defaultSettings()
-	if s.Path != "RS0ISS,SGATE,WIDE2-1" {
+	if s.Path != "ARISS,DP0SNX,WIDE2-1" {
 		t.Fatalf("default APRS path = %q", s.Path)
 	}
 	if s.LogSaveMode != "all" {
@@ -122,18 +122,126 @@ func TestFormatUISSFrame(t *testing.T) {
 }
 
 func TestFrameDestinationOptions(t *testing.T) {
-	for _, value := range []string{"CQ", "APRS", "BEACON", "QST", "APRSAT", " aprs "} {
+	for _, value := range []string{"CQ", "APRS", "BEACON", "QST", "APRSAT", " aprs ", "N0CALL", "N0CALL-1", "N0CALL/5"} {
 		if !isValidFrameDestination(value) {
 			t.Errorf("expected %q to be a valid frame destination", value)
 		}
 	}
-	for _, value := range []string{"", "N0CALL", "APRS-1", "APRS/5"} {
+	for _, value := range []string{"", "N0CALL/QRP", "TOOLONG7", "N0CALL-16", "N0C@LL"} {
 		if isValidFrameDestination(value) {
 			t.Errorf("did not expect %q to be a valid frame destination", value)
 		}
 	}
 	if got := defaultSettings().FrameDestination; got != "APRS" {
 		t.Fatalf("default frame destination = %q, want APRS", got)
+	}
+}
+
+func TestPrepareOutboundMessageUsesFrameDestinationAndPlainInfo(t *testing.T) {
+	settings := defaultSettings()
+	settings.Callsign = "BH2VSQ"
+	destination, info, err := prepareOutboundMessage("n2test-7", "Hello {HisCall}", settings)
+	if err != nil {
+		t.Fatalf("prepareOutboundMessage: %v", err)
+	}
+	if destination != "N2TEST-7" {
+		t.Fatalf("destination = %q, want N2TEST-7", destination)
+	}
+	if got, want := string(info), "Hello N2TEST-7"; got != want {
+		t.Fatalf("information field = %q, want %q", got, want)
+	}
+	if strings.HasPrefix(string(info), ":") {
+		t.Fatalf("information field unexpectedly contains APRS addressee syntax: %q", string(info))
+	}
+}
+
+func TestNormalizeFrameDestinationCanonicalizesSSID(t *testing.T) {
+	got, err := normalizeFrameDestination("n0call/5")
+	if err != nil {
+		t.Fatalf("normalizeFrameDestination: %v", err)
+	}
+	if got != "N0CALL-5" {
+		t.Fatalf("normalized destination = %q, want N0CALL-5", got)
+	}
+}
+
+func TestClassifyReceivedPacketCategories(t *testing.T) {
+	cases := []struct {
+		name    string
+		packet  aprs.Packet
+		ownCall string
+		want    string
+	}{
+		{name: "self echo", packet: aprs.Packet{Source: "BH2VSQ-1", Destination: "N2TEST", Info: "HELLO"}, ownCall: "BH2VSQ-1", want: "接收自己"},
+		{name: "CQ destination without our callsign", packet: aprs.Packet{Source: "N2TEST", Destination: "CQ", Info: "HELLO"}, ownCall: "BH2VSQ-1", want: "接收他人"},
+		{name: "configured callsign in info", packet: aprs.Packet{Source: "N2TEST", Destination: "APRS", Info: "HELLO BH2VSQ-1, ARE YOU THERE"}, ownCall: "BH2VSQ-1", want: "他人呼叫"},
+		{name: "base callsign when own SSID configured", packet: aprs.Packet{Source: "N2TEST", Destination: "APRS", Info: "CQ BH2VSQ ARE YOU THERE"}, ownCall: "BH2VSQ-1", want: "他人呼叫"},
+		{name: "callsign substring is not a call", packet: aprs.Packet{Source: "N2TEST", Destination: "APRS", Info: "HELLO XBH2VSQZ"}, ownCall: "BH2VSQ-1", want: "接收他人"},
+		{name: "other station", packet: aprs.Packet{Source: "N2TEST", Destination: "BH2VSQ-1", Info: "HELLO N2TEST"}, ownCall: "BH2VSQ-1", want: "接收他人"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := classifyReceivedPacket(tc.packet, tc.ownCall); got != tc.want {
+				t.Fatalf("classifyReceivedPacket() = %q, want %q", got, tc.want)
+			}
+		})
+	}
+}
+
+func TestFrameDestinationMatchesOwnCallsign(t *testing.T) {
+	cases := []struct {
+		destination string
+		ownCall     string
+		want        bool
+	}{
+		{destination: "BH2VSQ-1", ownCall: "bh2vsq-1", want: true},
+		{destination: "BH2VSQ/1", ownCall: "BH2VSQ-1", want: true},
+		{destination: "N2TEST", ownCall: "BH2VSQ-1", want: false},
+		{destination: "BH2VSQ-1", ownCall: "", want: false},
+	}
+	for _, tc := range cases {
+		t.Run(tc.destination+"/"+tc.ownCall, func(t *testing.T) {
+			if got := frameDestinationMatchesCallsign(tc.destination, tc.ownCall); got != tc.want {
+				t.Fatalf("frameDestinationMatchesCallsign(%q, %q) = %v, want %v", tc.destination, tc.ownCall, got, tc.want)
+			}
+		})
+	}
+}
+
+func TestFindEchoDelayMatchesLastMatchingTransmission(t *testing.T) {
+	app := NewApp()
+	start := time.Date(2026, time.October, 17, 4, 0, 0, 0, time.UTC)
+	app.txHistory = []transmitMark{
+		{Timestamp: start.UnixMilli(), Source: "BH2VSQ", Destination: "N2TEST", Info: "OLD"},
+		{Timestamp: start.Add(2 * time.Second).UnixMilli(), Source: "BH2VSQ", Destination: "N2TEST", Info: "HELLO"},
+	}
+	packet := aprs.Packet{Source: "BH2VSQ", Destination: "N2TEST", Path: []string{"ISS*"}, Info: "HELLO"}
+	got := app.findEchoDelayLocked(packet, start.Add(3250*time.Millisecond))
+	if got != 1250 {
+		t.Fatalf("echo delay = %d ms, want 1250 ms", got)
+	}
+}
+
+func TestFindEchoDelayRequiresRepeatedRepeaterPath(t *testing.T) {
+	app := NewApp()
+	start := time.Date(2026, time.October, 17, 4, 0, 0, 0, time.UTC)
+	app.txHistory = []transmitMark{{Timestamp: start.UnixMilli(), Source: "BH2VSQ", Destination: "N2TEST", Info: "HELLO"}}
+	cases := []struct {
+		name string
+		path []string
+		want int64
+	}{
+		{name: "repeater downlink echo", path: []string{"RS0ISS*"}, want: 950},
+		{name: "not marked as repeated", path: []string{"RS0ISS"}, want: 0},
+		{name: "direct reception", path: nil, want: 0},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			packet := aprs.Packet{Source: "BH2VSQ", Destination: "N2TEST", Path: tc.path, Info: "HELLO"}
+			if got := app.findEchoDelayLocked(packet, start.Add(950*time.Millisecond)); got != tc.want {
+				t.Fatalf("findEchoDelayLocked() = %d, want %d", got, tc.want)
+			}
+		})
 	}
 }
 
@@ -149,7 +257,7 @@ func TestDefaultPresetMessagesFollowRadioExchangeDefaults(t *testing.T) {
 		}
 	}
 	if len(s.PresetResetCQ) != 6 || !s.PresetResetCQ[0] {
-		t.Fatalf("F1 must reset the recipient to CQ by default: %#v", s.PresetResetCQ)
+		t.Fatalf("F1 must switch the frame destination to CQ by default: %#v", s.PresetResetCQ)
 	}
 	for i := 1; i < len(s.PresetResetCQ); i++ {
 		if s.PresetResetCQ[i] {

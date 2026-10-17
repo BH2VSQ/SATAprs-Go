@@ -25,6 +25,13 @@ type Device struct {
 	IsDefault bool   `json:"isDefault"`
 }
 
+// audioChunk carries one contiguous block of captured samples. Sequence advances
+// for every callback block, including blocks dropped when the worker queue is full.
+type audioChunk struct {
+	sequence uint64
+	samples  []int16
+}
+
 // Engine manages selectable audio endpoints for AFSK1200 receive and transmit.
 type Engine struct {
 	ctx              *malgo.AllocatedContext
@@ -42,15 +49,16 @@ type Engine struct {
 	txDone     chan struct{}
 	txRunning  bool
 
-	captureMu      sync.Mutex
-	capture        *malgo.Device
-	rxChunks       chan []int16
-	rxCancel       context.CancelFunc
-	rxWG           sync.WaitGroup
-	captureSamples atomic.Uint64
-	inputLevelBits atomic.Uint64 // atomic.Float64 representation for the capture RMS level in dBFS
-	runtimeErrMu   sync.RWMutex
-	runtimeErr     string
+	captureMu            sync.Mutex
+	capture              *malgo.Device
+	rxChunks             chan audioChunk
+	rxCancel             context.CancelFunc
+	rxWG                 sync.WaitGroup
+	captureSamples       atomic.Uint64
+	captureDroppedChunks atomic.Uint64
+	inputLevelBits       atomic.Uint64 // atomic.Float64 representation for the capture RMS level in dBFS
+	runtimeErrMu         sync.RWMutex
+	runtimeErr           string
 }
 
 func New() (*Engine, error) { return NewWithDevices("", "") }
@@ -72,7 +80,7 @@ func NewWithDevicesAndLogger(captureID, playbackID string, logf func(string, ...
 	}
 	e := &Engine{
 		ctx: ctx, diagf: logf, captureDeviceID: captureID, playbackDeviceID: playbackID,
-		rxChunks: make(chan []int16, 96), spectrum: make([]float64, 2048),
+		rxChunks: make(chan audioChunk, 96), spectrum: make([]float64, 2048),
 	}
 	e.inputLevelBits.Store(math.Float64bits(-120))
 	return e, nil
@@ -125,6 +133,15 @@ func (e *Engine) ReceiveStats() (uint64, float64) {
 		return 0, -120
 	}
 	return e.captureSamples.Load(), math.Float64frombits(e.inputLevelBits.Load())
+}
+
+// ReceiveDroppedChunks returns the number of capture blocks dropped in the
+// current listening session because the non-blocking audio queue was full.
+func (e *Engine) ReceiveDroppedChunks() uint64 {
+	if e == nil {
+		return 0
+	}
+	return e.captureDroppedChunks.Load()
 }
 
 // SetDevices applies the chosen device IDs. Callers must stop streaming first.
@@ -252,6 +269,7 @@ func (e *Engine) StartRX(onPacket func(aprs.Packet)) (retErr error) {
 
 	e.setRuntimeError("")
 	e.captureSamples.Store(0)
+	e.captureDroppedChunks.Store(0)
 	e.inputLevelBits.Store(math.Float64bits(-120))
 	cfg := malgo.DefaultDeviceConfig(malgo.Capture)
 	cfg.Capture.Format = malgo.FormatS16
@@ -275,7 +293,8 @@ func (e *Engine) StartRX(onPacket func(aprs.Packet)) (retErr error) {
 		nativeDeviceID = id.Pointer()
 		cfg.Capture.DeviceID = nativeDeviceID
 	}
-	chunks := make(chan []int16, 96)
+	chunks := make(chan audioChunk, 96)
+	var chunkSequence atomic.Uint64
 	callbacks := malgo.DeviceCallbacks{Data: func(_, input []byte, _ uint32) {
 		// A panic crossing a cgo callback can terminate the complete process.
 		// Keep this handler intentionally small and isolate all Go failures here.
@@ -289,13 +308,15 @@ func (e *Engine) StartRX(onPacket func(aprs.Packet)) (retErr error) {
 		}
 		count := len(input) / 2
 		e.captureSamples.Add(uint64(count))
+		sequence := chunkSequence.Add(1)
 		block := make([]int16, count)
 		for i := 0; i < count; i++ {
 			block[i] = int16(binary.LittleEndian.Uint16(input[i*2 : i*2+2]))
 		}
 		select {
-		case chunks <- block:
-		default: // Drop late audio rather than blocking the native callback.
+		case chunks <- audioChunk{sequence: sequence, samples: block}:
+		default: // Never block the native callback; count the loss for recovery/diagnostics.
+			e.captureDroppedChunks.Add(1)
 		}
 	}}
 	var err error
@@ -327,14 +348,22 @@ func (e *Engine) StartRX(onPacket func(aprs.Packet)) (retErr error) {
 		}()
 		decoder := aprs.NewAFSK1200Decoder(SampleRate)
 		fftSamples := make([]int16, 0, 16384)
+		var lastSequence uint64
 		for {
 			select {
 			case <-rxCtx.Done():
 				return
-			case block := <-chunks:
-				if len(block) == 0 {
+			case chunk := <-chunks:
+				if len(chunk.samples) == 0 {
 					continue
 				}
+				if missing := missingAudioChunks(lastSequence, chunk.sequence); missing > 0 {
+					decoder.Reset()
+					fftSamples = fftSamples[:0]
+					e.diagnostic("检测到音频数据块缺口：丢失约 %d 个块，累计队列丢块=%d", missing, e.captureDroppedChunks.Load())
+				}
+				lastSequence = chunk.sequence
+				block := chunk.samples
 				e.inputLevelBits.Store(math.Float64bits(levelDBFS(block)))
 				for _, packet := range decoder.Process(block) {
 					if onPacket != nil {
@@ -503,6 +532,15 @@ func (e *Engine) resolveDeviceID(kind malgo.DeviceType, wanted string) (*malgo.D
 		}
 	}
 	return nil, errors.New("已选择的音频设备无法找到，请刷新设备列表")
+}
+
+// missingAudioChunks reports missing callback blocks between two delivered blocks.
+// A zero previous sequence means this is the first delivered block in a session.
+func missingAudioChunks(previous, current uint64) uint64 {
+	if previous == 0 || current <= previous+1 {
+		return 0
+	}
+	return current - previous - 1
 }
 
 // levelDBFS returns a block RMS level relative to full-scale signed 16-bit PCM.

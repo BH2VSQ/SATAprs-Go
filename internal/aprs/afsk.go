@@ -56,6 +56,8 @@ type AFSK1200Decoder struct {
 	pending    []float64
 	phaseStart []int
 	phases     []phaseDecoder
+	markCoeff  float64
+	spaceCoeff float64
 }
 
 type phaseDecoder struct {
@@ -79,7 +81,29 @@ func NewAFSK1200Decoder(sampleRate int) *AFSK1200Decoder {
 	for i := range starts {
 		starts[i] = i
 	}
-	return &AFSK1200Decoder{sampleRate: sampleRate, phaseStart: starts, phases: phases}
+	markCoeff := 2 * math.Cos(2*math.Pi*float64(AFSKMarkHz)/float64(sampleRate))
+	spaceCoeff := 2 * math.Cos(2*math.Pi*float64(AFSKSpaceHz)/float64(sampleRate))
+	return &AFSK1200Decoder{
+		sampleRate: sampleRate,
+		phaseStart: starts,
+		phases:     phases,
+		markCoeff:  markCoeff,
+		spaceCoeff: spaceCoeff,
+	}
+}
+
+// Reset discards all buffered samples and synchronization state. Call it when
+// the capture stream has a gap, because treating non-contiguous audio as
+// contiguous can corrupt NRZI and HDLC framing until a later flag is found.
+func (d *AFSK1200Decoder) Reset() {
+	if d == nil {
+		return
+	}
+	d.pending = d.pending[:0]
+	for i := range d.phaseStart {
+		d.phaseStart[i] = i
+		d.phases[i] = phaseDecoder{}
+	}
 }
 
 func (d *AFSK1200Decoder) Process(input []int16) []Packet {
@@ -91,8 +115,8 @@ func (d *AFSK1200Decoder) Process(input []int16) []Packet {
 	for phase := range d.phases {
 		for d.phaseStart[phase]+step <= len(d.pending) {
 			start := d.phaseStart[phase]
-			markPower := goertzelPower(d.pending[start:start+step], float64(AFSKMarkHz), float64(d.sampleRate))
-			spacePower := goertzelPower(d.pending[start:start+step], float64(AFSKSpaceHz), float64(d.sampleRate))
+			markPower := goertzelPowerWithCoeff(d.pending[start:start+step], d.markCoeff)
+			spacePower := goertzelPowerWithCoeff(d.pending[start:start+step], d.spaceCoeff)
 			mark := markPower >= spacePower
 			p := &d.phases[phase]
 			if p.haveTone {
@@ -191,6 +215,10 @@ func bitsToFrame(bits []byte) []byte {
 
 func goertzelPower(samples []float64, targetHz, sampleRate float64) float64 {
 	coeff := 2 * math.Cos(2*math.Pi*targetHz/sampleRate)
+	return goertzelPowerWithCoeff(samples, coeff)
+}
+
+func goertzelPowerWithCoeff(samples []float64, coeff float64) float64 {
 	q0, q1, q2 := 0.0, 0.0, 0.0
 	for _, x := range samples {
 		q0 = coeff*q1 - q2 + x

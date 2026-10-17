@@ -55,24 +55,39 @@ type Settings struct {
 type PacketView struct {
 	UTC         string `json:"utc"`
 	Timestamp   int64  `json:"timestamp"`
+	DataType    string `json:"dataType"`
+	ForMe       bool   `json:"forMe"`
 	Source      string `json:"source"`
 	Destination string `json:"destination"`
 	Path        string `json:"path"`
 	Info        string `json:"info"`
 	MessageTo   string `json:"messageTo"`
 	Message     string `json:"message"`
+	DelayMS     int64  `json:"delayMs"`
 	RawHex      string `json:"rawHex"`
 	PacketText  string `json:"packet"`
 }
 
 type TxView struct {
-	UTC        string `json:"utc"`
-	Timestamp  int64  `json:"timestamp"`
-	Kind       string `json:"kind"`
-	Info       string `json:"info"`
-	Status     string `json:"status"`
-	RawHex     string `json:"rawHex"`
-	PacketText string `json:"packet"`
+	UTC         string `json:"utc"`
+	Timestamp   int64  `json:"timestamp"`
+	DataType    string `json:"dataType"`
+	Source      string `json:"source"`
+	Destination string `json:"destination"`
+	Path        string `json:"path"`
+	DelayMS     int64  `json:"delayMs"`
+	Kind        string `json:"kind"`
+	Info        string `json:"info"`
+	Status      string `json:"status"`
+	RawHex      string `json:"rawHex"`
+	PacketText  string `json:"packet"`
+}
+
+type transmitMark struct {
+	Timestamp   int64
+	Source      string
+	Destination string
+	Info        string
 }
 
 type State struct {
@@ -127,6 +142,7 @@ type App struct {
 	lastError         string
 	received          []PacketView
 	transmitted       []TxView
+	txHistory         []transmitMark // guarded by mu; used for self-echo delay measurement
 	seen              map[string]time.Time
 	audioInputs       []audio.Device
 	audioOutputs      []audio.Device
@@ -207,9 +223,11 @@ func (a *App) startup(ctx context.Context) {
 			if loaded.Recipient == "" {
 				loaded.Recipient = defaults.Recipient
 			}
-			loaded.FrameDestination = strings.ToUpper(strings.TrimSpace(loaded.FrameDestination))
-			if !isValidFrameDestination(loaded.FrameDestination) {
+			normalizedDestination, destinationErr := normalizeFrameDestination(loaded.FrameDestination)
+			if destinationErr != nil {
 				loaded.FrameDestination = defaults.FrameDestination
+			} else {
+				loaded.FrameDestination = normalizedDestination
 			}
 			if loaded.Path == "" || loaded.Path == "ARISS" {
 				// ARISS was the built-in default in older builds; migrate it to the
@@ -416,14 +434,20 @@ func (a *App) SaveSettings(s Settings) error {
 	s.QTH = strings.TrimSpace(s.QTH)
 	s.Grid = strings.ToUpper(strings.TrimSpace(s.Grid))
 	s.Path = strings.TrimSpace(s.Path)
-	s.FrameDestination = strings.ToUpper(strings.TrimSpace(s.FrameDestination))
-	if s.FrameDestination == "" {
+	if strings.TrimSpace(s.FrameDestination) == "" {
 		s.FrameDestination = defaultSettings().FrameDestination
 	}
-	if !isValidFrameDestination(s.FrameDestination) {
-		return fmt.Errorf("帧目的地址必须是 CQ、APRS、BEACON、QST 或 APRSAT")
+	normalizedDestination, destinationErr := normalizeFrameDestination(s.FrameDestination)
+	if destinationErr != nil {
+		return fmt.Errorf("无效帧目的地址：%w", destinationErr)
 	}
+	s.FrameDestination = normalizedDestination
+	// Recipient remains in the settings struct for old settings-file compatibility.
+	// New transmissions use FrameDestination as the actual AX.25 destination.
 	s.Recipient = strings.ToUpper(strings.TrimSpace(s.Recipient))
+	if s.Recipient == "" {
+		s.Recipient = defaultSettings().Recipient
+	}
 	s.Theme = strings.ToLower(strings.TrimSpace(s.Theme))
 	if s.Theme == "" {
 		s.Theme = defaultSettings().Theme
@@ -1190,7 +1214,7 @@ func (a *App) StopReceive() {
 	a.setStatus("已停止监听。")
 }
 
-func (a *App) SendPreset(index int, recipient string) error {
+func (a *App) SendPreset(index int, frameDestination string) error {
 	s := a.settingsSnapshot()
 	if index < 0 || index >= 6 || index >= len(s.PresetMessages) {
 		return errors.New("预设消息索引无效，固定支持 F1 至 F6")
@@ -1202,41 +1226,51 @@ func (a *App) SendPreset(index int, recipient string) error {
 	if strings.TrimSpace(s.PresetMessages[index]) == "" {
 		return fmt.Errorf("%s 尚未设置消息正文，请先编辑预设", name)
 	}
-	return a.sendMessage(recipient, s.PresetMessages[index], fmt.Sprintf("预设消息 %s", name))
+	return a.sendMessage(frameDestination, s.PresetMessages[index], fmt.Sprintf("预设消息 %s", name))
 }
 
-func (a *App) SendCustomMessage(recipient, message string) error {
-	return a.sendMessage(recipient, message, "自定义消息")
+func (a *App) SendCustomMessage(frameDestination, message string) error {
+	return a.sendMessage(frameDestination, message, "自定义消息")
 }
 
-func (a *App) sendMessage(recipient, message, kind string) error {
+func (a *App) sendMessage(frameDestination, message, kind string) error {
 	s := a.settingsSnapshot()
 	if s.Callsign == "" {
 		return errors.New("请先设置本机呼号")
 	}
-	if strings.TrimSpace(recipient) == "" {
-		recipient = s.Recipient
+	if strings.TrimSpace(frameDestination) == "" {
+		frameDestination = s.FrameDestination
 	}
-	recipient = strings.ToUpper(strings.TrimSpace(recipient))
-	if recipient == "" {
-		return errors.New("请填写对方呼号，或输入 CQ")
-	}
-	message = expandTemplate(message, s, recipient)
-	info, err := aprs.BuildMessageInfo(recipient, message)
+	destination, info, err := prepareOutboundMessage(frameDestination, message, s)
 	if err != nil {
 		a.setError(err)
 		return err
 	}
-	if err := a.sendInfo(info, kind); err != nil {
-		return err
-	}
-	if wireRecipient, normErr := aprs.NormalizeMessageAddressee(recipient); normErr == nil && wireRecipient != recipient {
-		a.setStatus(fmt.Sprintf("消息已发射。目标特殊呼号按标准 APRS 地址规范化为 %s。", wireRecipient))
-	}
-	return nil
+	return a.sendInfo(info, kind, destination)
 }
 
-func (a *App) sendInfo(info []byte, kind string) error {
+// prepareOutboundMessage keeps the AX.25 destination and information field
+// separate. The destination is encoded in the address chain; the information
+// field contains only the message text after macro expansion.
+func prepareOutboundMessage(frameDestination, message string, s Settings) (string, []byte, error) {
+	destination, err := normalizeFrameDestination(frameDestination)
+	if err != nil {
+		return "", nil, err
+	}
+	message = expandTemplate(message, s, destination)
+	if strings.TrimSpace(message) == "" {
+		return "", nil, errors.New("消息内容不能为空")
+	}
+	if strings.ContainsAny(message, "\r\n") {
+		return "", nil, errors.New("消息内容不能包含换行")
+	}
+	if len([]byte(message)) > aprs.MaxAPRSMessageText {
+		return "", nil, fmt.Errorf("消息正文最多 %d 字节，当前 %d 字节", aprs.MaxAPRSMessageText, len([]byte(message)))
+	}
+	return destination, []byte(message), nil
+}
+
+func (a *App) sendInfo(info []byte, kind, frameDestination string) error {
 	a.txMu.Lock()
 	defer a.txMu.Unlock()
 	if a.isPTTTestActive() {
@@ -1265,9 +1299,10 @@ func (a *App) sendInfo(info []byte, kind string) error {
 		source = fmt.Sprintf("%s-%d", source, wireSSID)
 	}
 	path := splitPath(s.Path)
-	destination := strings.ToUpper(strings.TrimSpace(s.FrameDestination))
-	if !isValidFrameDestination(destination) {
-		destination = defaultSettings().FrameDestination
+	destination, err := normalizeFrameDestination(frameDestination)
+	if err != nil {
+		a.setError(err)
+		return err
 	}
 	frame, err := aprs.EncodeUIFrame(source, destination, path, info)
 	if err != nil {
@@ -1309,7 +1344,10 @@ func (a *App) sendInfo(info []byte, kind string) error {
 		}
 	}()
 	samples := aprs.EncodeAFSK1200(frame, audio.SampleRate)
+	txStartedAt := time.Now().UTC()
+	a.recordTXStart(txStartedAt, source, destination, string(info))
 	if err := engine.Play(ctx, samples); err != nil {
+		a.removeTXStart(txStartedAt, source, destination, string(info))
 		a.setError(err)
 		a.addTX(kind, string(info), "音频发射失败: "+err.Error(), frame)
 		return err
@@ -1336,7 +1374,7 @@ func (a *App) sendInfo(info []byte, kind string) error {
 	case "off":
 		result = "音频已播放，PTT 由外部手动控制"
 	}
-	a.addTX(kind, string(info), result, frame)
+	a.addTXAt(txStartedAt, kind, string(info), result, frame)
 	if specialSuffix != "" {
 		if _, parseErr := strconv.Atoi(specialSuffix); parseErr != nil {
 			a.setStatus(fmt.Sprintf("发射完成。AX.25 空中源地址使用 %s；/%s 为本地呼号别名，仅会出现在消息模板等文本中。", source, specialSuffix))
@@ -1366,8 +1404,13 @@ func (a *App) onReceive(packet aprs.Packet) {
 		}
 	}
 	to, msg, hasMessage := aprs.ParseAPRSMessage(packet.Info)
-	view := PacketView{UTC: now.Format("15:04:05"), Timestamp: now.UnixMilli(), Source: packet.Source, Destination: packet.Destination,
-		Path: strings.Join(packet.Path, ","), Info: packet.Info, RawHex: strings.ToUpper(hex.EncodeToString(packet.Raw)), PacketText: formatUISSFrame(packet, now)}
+	ownCall := configuredWireCallsign(a.settings)
+	dataType := classifyReceivedPacket(packet, ownCall)
+	forMe := frameDestinationMatchesCallsign(packet.Destination, ownCall)
+	delayMS := a.findEchoDelayLocked(packet, now)
+	view := PacketView{UTC: now.Format("15:04:05"), Timestamp: now.UnixMilli(), DataType: dataType, ForMe: forMe,
+		Source: packet.Source, Destination: packet.Destination, Path: strings.Join(packet.Path, ","),
+		Info: packet.Info, DelayMS: delayMS, RawHex: strings.ToUpper(hex.EncodeToString(packet.Raw)), PacketText: formatUISSFrame(packet, now)}
 	if hasMessage {
 		view.MessageTo, view.Message = to, msg
 	}
@@ -1382,22 +1425,94 @@ func (a *App) onReceive(packet aprs.Packet) {
 }
 
 func (a *App) addTX(kind, info, status string, frame []byte) {
-	now := time.Now().UTC()
+	a.addTXAt(time.Now().UTC(), kind, info, status, frame)
+}
+
+func (a *App) addTXAt(at time.Time, kind, info, status string, frame []byte) {
+	now := at.UTC()
 	packetText := info
 	logPacketText := info
+	source, destination, path := "", "", ""
 	if packet, err := aprs.DecodeUIFrame(frame); err == nil {
 		packetText = formatUISSFrame(packet, now)
 		logPacketText = formatTNC2Packet(packet)
+		source = packet.Source
+		destination = packet.Destination
+		path = strings.Join(packet.Path, ",")
 	}
 	rawHex := strings.ToUpper(hex.EncodeToString(frame))
 	a.mu.Lock()
-	view := TxView{UTC: now.Format("15:04:05"), Timestamp: now.UnixMilli(), Kind: kind, Info: info, Status: status, RawHex: rawHex, PacketText: packetText}
+	view := TxView{UTC: now.Format("15:04:05"), Timestamp: now.UnixMilli(), DataType: "TX",
+		Source: source, Destination: destination, Path: path, Kind: kind, Info: info, Status: status,
+		RawHex: rawHex, PacketText: packetText}
 	a.transmitted = append([]TxView{view}, a.transmitted...)
 	if len(a.transmitted) > 100 {
 		a.transmitted = a.transmitted[:100]
 	}
 	a.mu.Unlock()
 	a.appendTxRxLog(now, "TX", fmt.Sprintf("kind=%s %s | status=%s | RAW=%s", kind, logPacketText, status, rawHex))
+}
+
+func (a *App) recordTXStart(at time.Time, source, destination, info string) {
+	mark := transmitMark{Timestamp: at.UnixMilli(), Source: source, Destination: destination, Info: info}
+	a.mu.Lock()
+	cutoff := at.Add(-10 * time.Minute).UnixMilli()
+	kept := a.txHistory[:0]
+	for _, old := range a.txHistory {
+		if old.Timestamp >= cutoff {
+			kept = append(kept, old)
+		}
+	}
+	a.txHistory = append(kept, mark)
+	if len(a.txHistory) > 100 {
+		a.txHistory = append([]transmitMark(nil), a.txHistory[len(a.txHistory)-100:]...)
+	}
+	a.mu.Unlock()
+}
+
+func (a *App) removeTXStart(at time.Time, source, destination, info string) {
+	timestamp := at.UnixMilli()
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	for i := len(a.txHistory) - 1; i >= 0; i-- {
+		mark := a.txHistory[i]
+		if mark.Timestamp == timestamp && mark.Source == source && mark.Destination == destination && mark.Info == info {
+			a.txHistory = append(a.txHistory[:i], a.txHistory[i+1:]...)
+			return
+		}
+	}
+}
+
+// findEchoDelayLocked must be called while App.mu is held. It associates an
+// RX frame with the most recent matching TX start, allowing the TX/RX table to
+// show an approximate end-to-end echo delay without changing the decoder.
+func (a *App) findEchoDelayLocked(packet aprs.Packet, receivedAt time.Time) int64 {
+	// A repeated-address marker (*) confirms the frame came back through an AX.25 repeater.
+	if !packetHasRepeatedPath(packet.Path) {
+		return 0
+	}
+	const maxEchoAgeMS = int64(10 * time.Minute / time.Millisecond)
+	receivedMS := receivedAt.UnixMilli()
+	for i := len(a.txHistory) - 1; i >= 0; i-- {
+		mark := a.txHistory[i]
+		elapsed := receivedMS - mark.Timestamp
+		if elapsed < 0 || elapsed > maxEchoAgeMS {
+			continue
+		}
+		if strings.EqualFold(packet.Source, mark.Source) && strings.EqualFold(packet.Destination, mark.Destination) && packet.Info == mark.Info {
+			return elapsed
+		}
+	}
+	return 0
+}
+
+func packetHasRepeatedPath(path []string) bool {
+	for _, hop := range path {
+		if strings.HasSuffix(strings.TrimSpace(hop), "*") {
+			return true
+		}
+	}
+	return false
 }
 
 // formatTNC2Packet renders an AX.25 UI frame as the conventional APRS/TNC2
@@ -1421,13 +1536,111 @@ func formatUISSFrame(packet aprs.Packet, at time.Time) string {
 	return header + "\n" + packet.Info
 }
 
+func normalizeFrameDestination(value string) (string, error) {
+	value = strings.ToUpper(strings.TrimSpace(value))
+	if value == "" {
+		return "", errors.New("帧目的地址不能为空")
+	}
+	frame, err := aprs.EncodeUIFrame("N0CALL", value, nil, nil)
+	if err != nil {
+		return "", fmt.Errorf("无效 AX.25 帧目的地址 %q：%w", value, err)
+	}
+	packet, err := aprs.DecodeUIFrame(frame)
+	if err != nil {
+		return "", fmt.Errorf("规范化 AX.25 帧目的地址失败：%w", err)
+	}
+	return packet.Destination, nil
+}
+
 func isValidFrameDestination(value string) bool {
-	switch strings.ToUpper(strings.TrimSpace(value)) {
-	case "CQ", "APRS", "BEACON", "QST", "APRSAT":
-		return true
-	default:
+	_, err := normalizeFrameDestination(value)
+	return err == nil
+}
+
+func configuredWireCallsign(s Settings) string {
+	baseCall, specialSuffix, err := parseConfiguredCallsign(s.Callsign)
+	if err != nil || baseCall == "" {
+		return ""
+	}
+	wireSSID := s.SSID
+	if specialSuffix != "" {
+		if n, parseErr := strconv.Atoi(specialSuffix); parseErr == nil && n >= 0 && n <= 15 {
+			wireSSID = n
+		}
+	}
+	if wireSSID > 0 {
+		return fmt.Sprintf("%s-%d", baseCall, wireSSID)
+	}
+	return baseCall
+}
+
+func frameDestinationMatchesCallsign(destination, ownCall string) bool {
+	if strings.TrimSpace(destination) == "" || strings.TrimSpace(ownCall) == "" {
 		return false
 	}
+	dest, destErr := normalizeFrameDestination(destination)
+	self, selfErr := normalizeFrameDestination(ownCall)
+	return destErr == nil && selfErr == nil && strings.EqualFold(dest, self)
+}
+
+func classifyReceivedPacket(packet aprs.Packet, ownCall string) string {
+	if ownCall != "" && strings.EqualFold(strings.TrimSpace(packet.Source), strings.TrimSpace(ownCall)) {
+		return "接收自己"
+	}
+	if containsCallsign(packet.Info, ownCall) {
+		return "他人呼叫"
+	}
+	return "接收他人"
+}
+
+func containsCallsign(info, ownCall string) bool {
+	info = strings.ToUpper(info)
+	ownCall = strings.ToUpper(strings.TrimSpace(ownCall))
+	if ownCall == "" {
+		return false
+	}
+	candidates := []string{ownCall}
+	// A configured station may use a separate SSID. Also recognize its base call,
+	// because other stations commonly address the operator without that SSID.
+	if dash := strings.LastIndexByte(ownCall, '-'); dash > 0 && dash < len(ownCall)-1 {
+		suffix := ownCall[dash+1:]
+		digitsOnly := true
+		for i := 0; i < len(suffix); i++ {
+			if suffix[i] < '0' || suffix[i] > '9' {
+				digitsOnly = false
+				break
+			}
+		}
+		if digitsOnly {
+			candidates = append(candidates, ownCall[:dash])
+		}
+	}
+	for _, candidate := range candidates {
+		for offset := 0; offset <= len(info)-len(candidate); {
+			relative := strings.Index(info[offset:], candidate)
+			if relative < 0 {
+				break
+			}
+			start := offset + relative
+			end := start + len(candidate)
+			leftBoundary := start == 0 || !isCallsignAlphaNumeric(info[start-1])
+			rightBoundary := end == len(info) || !isCallsignAlphaNumeric(info[end])
+			if leftBoundary && rightBoundary {
+				return true
+			}
+			offset = start + 1
+		}
+	}
+	return false
+}
+
+func isCallsignAlphaNumeric(value byte) bool {
+	return value >= 'A' && value <= 'Z' || value >= '0' && value <= '9'
+}
+
+func isCQCall(info string) bool {
+	info = strings.ToUpper(strings.TrimSpace(info))
+	return info == "CQ" || strings.HasPrefix(info, "CQ ") || strings.HasPrefix(info, "CQ\t")
 }
 
 func (a *App) settingsSnapshot() Settings {
@@ -1506,7 +1719,7 @@ func expandTemplate(text string, s Settings, hisCall string) string {
 	}
 	hisCall = strings.ToUpper(strings.TrimSpace(hisCall))
 	if hisCall == "" {
-		hisCall = strings.ToUpper(strings.TrimSpace(s.Recipient))
+		hisCall = strings.ToUpper(strings.TrimSpace(s.FrameDestination))
 	}
 	replacer := strings.NewReplacer(
 		"{CALL}", s.Callsign, "{HisCall}", hisCall, "{GRID}", grid,
